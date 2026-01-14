@@ -76,7 +76,7 @@ const ChatbotPage = () => {
     };
 
     return (
-        <div className="h-screen overflow-hidden bg-[#0F172A] flex flex-col">
+        <div className="fixed inset-0 bg-[#0F172A] overflow-hidden">
             {/* Background Effects */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6366F1]/10 blur-[160px] rounded-full"></div>
@@ -84,7 +84,7 @@ const ChatbotPage = () => {
             </div>
 
             {/* Header */}
-            <header className="bg-[#0F172A]/80 backdrop-blur-xl border-b border-white/5 p-4 relative z-20">
+            <header className="fixed top-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-xl border-b border-white/5 p-4 z-50 h-[72px]">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link
@@ -114,7 +114,7 @@ const ChatbotPage = () => {
             </header>
 
             {/* Messages Container */}
-            <main className="flex-1 overflow-y-auto p-6 relative z-10">
+            <main className="absolute inset-0 overflow-y-auto px-6 pt-[88px] pb-[100px] z-10 scroll-smooth">
                 <div className="max-w-4xl mx-auto">
                     {messages.map((m, i) => (
                         <ChatBubble key={i} message={m.text} isAI={m.isAI} />
@@ -160,7 +160,7 @@ const ChatbotPage = () => {
             </main>
 
             {/* Input Area */}
-            <footer className="bg-[#0F172A]/80 backdrop-blur-xl border-t border-white/5 p-4 relative z-20">
+            <footer className="fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-xl border-t border-white/5 p-4 z-50">
                 <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-3">
                     <input
                         type="text"
