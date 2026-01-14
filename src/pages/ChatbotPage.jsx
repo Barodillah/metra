@@ -5,7 +5,8 @@ import {
     Send,
     ArrowLeft,
     LockKeyhole,
-    ChevronRight
+    ChevronRight,
+    Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getAIResponse } from '../services/ai';
@@ -21,6 +22,26 @@ import {
     getAscendant,
     getMoonPhase
 } from '../utils/spiritual';
+
+// Helper function untuk mendapatkan hari dan tanggal dalam Bahasa Indonesia
+const getCurrentDateInfo = () => {
+    const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    const now = new Date();
+    const dayName = days[now.getDay()];
+    const date = now.getDate();
+    const monthName = months[now.getMonth()];
+    const year = now.getFullYear();
+
+    return {
+        dayName,
+        date,
+        monthName,
+        year,
+        fullDate: `${dayName}, ${date} ${monthName} ${year}`
+    };
+};
 
 const ChatBubble = ({ message, isAI }) => (
     <div className={`flex ${isAI ? 'justify-start' : 'justify-end'} mb-4 animate-fade-in`}>
@@ -38,14 +59,18 @@ const ChatbotPage = () => {
     const navigate = useNavigate();
     const messagesEndRef = useRef(null);
 
+    // Get current date info
+    const dateInfo = getCurrentDateInfo();
+
     const [messages, setMessages] = useState([
         {
-            text: `Halo${user?.name ? ` ${user.name}` : ''}! 👋\n\nSaya Metra AI Advisor, asisten spiritual digitalmu. Saya bisa membantu kamu memahami:\n\n• Makna Weton & Neptu\n• Interpretasi Zodiak\n• Life Path Number\n• Waktu terbaik untuk keputusan penting\n\nApa yang ingin kamu ketahui hari ini?`,
+            text: `Halo${user?.name ? ` ${user.name}` : ''}! 👋\n\nHari ini adalah ${dateInfo.fullDate}.\n\nSaya Metra AI Advisor, asisten spiritual digitalmu. Saya bisa membantu kamu memahami:\n\n• Makna Weton & Neptu\n• Interpretasi Zodiak\n• Life Path Number\n• Waktu terbaik untuk keputusan penting\n\nApa yang ingin kamu ketahui hari ini?`,
             isAI: true
         }
     ]);
     const [inputMessage, setInputMessage] = useState('');
     const [chatCount, setChatCount] = useState(0);
+    const [aiResponseCount, setAiResponseCount] = useState(0); // Track AI responses for free plan
     const [showPaywall, setShowPaywall] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
 
@@ -56,6 +81,20 @@ const ChatbotPage = () => {
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    // Clear chat function - hanya clear tampilan, data tetap di DB
+    const handleClearChat = () => {
+        const initialMessage = {
+            text: `Halo${user?.name ? ` ${user.name}` : ''}! 👋\n\nHari ini adalah ${dateInfo.fullDate}.\n\nSaya Metra AI Advisor, asisten spiritual digitalmu. Saya bisa membantu kamu memahami:\n\n• Makna Weton & Neptu\n• Interpretasi Zodiak\n• Life Path Number\n• Waktu terbaik untuk keputusan penting\n\nApa yang ingin kamu ketahui hari ini?`,
+            isAI: true
+        };
+        setMessages([initialMessage]);
+        setAiResponseCount(0);
+        setShowPaywall(false);
+    };
+
+    // Check if user has paid plan (pro or visionary)
+    const isPaidUser = user?.plan_type && user.plan_type !== 'free';
 
     const aiResponses = [
         "Berdasarkan analisis energi kosmik, hari ini adalah waktu yang tepat untuk memulai proyek baru. Weton kamu menunjukkan kekuatan pada aspek kreativitas dan komunikasi.",
@@ -144,6 +183,15 @@ Fase Bulan saat lahir: ${moon}
             }
 
             setMessages(prev => [...prev, { text: aiResponseText, isAI: true }]);
+
+            // Increment AI response count for free plan paywall trigger
+            const newAiResponseCount = aiResponseCount + 1;
+            setAiResponseCount(newAiResponseCount);
+
+            // Show paywall after AI has responded 2 times for free users
+            if (!isPaidUser && newAiResponseCount >= 2) {
+                setShowPaywall(true);
+            }
         } catch (error) {
             console.error("Chat Error:", error);
             setMessages(prev => [...prev, { text: "Maaf, sistem sedang sibuk. Coba lagi nanti.", isAI: true }]);
@@ -174,7 +222,14 @@ Fase Bulan saat lahir: ${moon}
                 // Simple logic to set initial chat count for today (could be improved)
                 const today = new Date().toISOString().split('T')[0];
                 const todayChats = data.filter(c => c.created_at.startsWith(today) && !c.is_ai).length;
+                const todayAiChats = data.filter(c => c.created_at.startsWith(today) && c.is_ai).length;
                 setChatCount(todayChats);
+                setAiResponseCount(todayAiChats);
+
+                // Check if free user already hit limit
+                if ((!user?.plan_type || user?.plan_type === 'free') && todayAiChats >= 2) {
+                    setShowPaywall(true);
+                }
             }
         };
 
@@ -213,8 +268,29 @@ Fase Bulan saat lahir: ${moon}
                         </div>
                     </div>
 
-                    <div className="text-[10px] bg-white/5 border border-white/10 px-4 py-2 rounded-full text-slate-400 font-bold uppercase tracking-tighter">
-                        {2 - chatCount} free chat
+                    <div className="flex items-center gap-2">
+                        {/* Show date info */}
+                        <div className="hidden sm:block text-[10px] text-slate-500 font-medium">
+                            {dateInfo.fullDate}
+                        </div>
+
+                        {/* Clear chat button - only for paid users */}
+                        {isPaidUser && (
+                            <button
+                                onClick={handleClearChat}
+                                className="p-2 hover:bg-white/5 rounded-xl transition-colors group"
+                                title="Clear chat"
+                            >
+                                <Trash2 className="text-slate-500 group-hover:text-red-400 transition-colors" size={18} />
+                            </button>
+                        )}
+
+                        {/* Free chat counter - only for free users */}
+                        {!isPaidUser && (
+                            <div className="text-[10px] bg-white/5 border border-white/10 px-4 py-2 rounded-full text-slate-400 font-bold uppercase tracking-tighter">
+                                {Math.max(0, 2 - aiResponseCount)} free chat
+                            </div>
+                        )}
                     </div>
                 </div>
             </header>
