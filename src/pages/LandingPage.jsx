@@ -79,11 +79,11 @@ const getShio = (dateString) => {
 // --- Custom Components ---
 
 const TraditionIcon = ({ type, size = "w-14 h-14" }) => {
-    const styles = `${size} mb-6 flex items-center justify-center rounded-2xl backdrop-blur-md border border-white/10 shadow-lg`;
+    const styles = `${size} mb-6 flex items-center justify-center rounded-2xl backdrop-blur-md border border-white/10 shadow-lg mx-auto md:mx-0 transition-all duration-500 group-hover:scale-110 group-hover:-translate-y-2`;
     switch (type) {
         case 'jawa':
             return (
-                <div className={`${styles} bg-amber-500/10 text-amber-500 shadow-amber-500/10`}>
+                <div className={`${styles} bg-amber-500/10 text-amber-500 shadow-amber-500/10 group-hover:shadow-amber-500/40`}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8">
                         <path d="M12 2L15 8L22 9L17 14L18 21L12 18L6 21L7 14L2 9L9 8L12 2Z" strokeLinecap="round" strokeLinejoin="round" />
                         <path d="M12 6V14" strokeLinecap="round" />
@@ -92,7 +92,7 @@ const TraditionIcon = ({ type, size = "w-14 h-14" }) => {
             );
         case 'china':
             return (
-                <div className={`${styles} bg-rose-500/10 text-rose-500 shadow-rose-500/10`}>
+                <div className={`${styles} bg-rose-500/10 text-rose-500 shadow-rose-500/10 group-hover:shadow-rose-500/40`}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8">
                         <circle cx="12" cy="12" r="10" />
                         <path d="M12 2V22M2 12H22M7 7L17 17M17 7L7 17" strokeLinecap="round" />
@@ -101,7 +101,7 @@ const TraditionIcon = ({ type, size = "w-14 h-14" }) => {
             );
         case 'india':
             return (
-                <div className={`${styles} bg-indigo-500/10 text-indigo-400 shadow-indigo-500/10`}>
+                <div className={`${styles} bg-indigo-500/10 text-indigo-400 shadow-indigo-500/10 group-hover:shadow-indigo-500/40`}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8">
                         <path d="M12 22C12 22 20 18 20 12C20 6 12 2 12 2C12 2 4 6 4 12C4 18 12 22 12 22Z" />
                         <circle cx="12" cy="12" r="3" />
@@ -110,7 +110,7 @@ const TraditionIcon = ({ type, size = "w-14 h-14" }) => {
             );
         case 'indian':
             return (
-                <div className={`${styles} bg-cyan-500/10 text-cyan-400 shadow-cyan-500/10`}>
+                <div className={`${styles} bg-cyan-500/10 text-cyan-400 shadow-cyan-500/10 group-hover:shadow-cyan-500/40`}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-8 h-8">
                         <circle cx="12" cy="12" r="8" />
                         <path d="M12 4V20M4 12H20" />

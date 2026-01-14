@@ -12,8 +12,8 @@ import { useAuth } from '../context/AuthContext';
 const ChatBubble = ({ message, isAI }) => (
     <div className={`flex ${isAI ? 'justify-start' : 'justify-end'} mb-4 animate-fade-in`}>
         <div className={`max-w-[85%] p-4 rounded-2xl shadow-lg ${isAI
-                ? 'bg-[#1E293B] border border-white/5 text-slate-200 shadow-black/20'
-                : 'bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white shadow-[#6366F1]/20'
+            ? 'bg-[#1E293B] border border-white/5 text-slate-200 shadow-black/20'
+            : 'bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white shadow-[#6366F1]/20'
             }`}>
             <p className="text-sm leading-relaxed whitespace-pre-wrap">{message}</p>
         </div>
@@ -76,7 +76,7 @@ const ChatbotPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0F172A] flex flex-col">
+        <div className="h-screen overflow-hidden bg-[#0F172A] flex flex-col">
             {/* Background Effects */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#6366F1]/10 blur-[160px] rounded-full"></div>
@@ -164,6 +164,7 @@ const ChatbotPage = () => {
                 <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-3">
                     <input
                         type="text"
+                        autoFocus
                         disabled={showPaywall}
                         placeholder={showPaywall ? "Sesi gratis telah berakhir" : "Tanyakan tentang nasib dan masa depanmu..."}
                         className="flex-1 bg-[#1E293B]/60 border border-white/10 rounded-2xl px-6 py-4 text-sm font-medium text-white focus:border-[#6366F1]/50 outline-none disabled:opacity-50 transition-all placeholder:text-slate-600"
