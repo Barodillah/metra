@@ -36,6 +36,9 @@ const RegisterPage = () => {
             navigate('/dashboard', { replace: true });
         } catch (err) {
             setError(err.message || 'Registrasi gagal. Silakan coba lagi.');
+            if (err.message.includes('User already registered')) {
+                setError('Email sudah terdaftar. Silakan login.');
+            }
         } finally {
             setLoading(false);
         }

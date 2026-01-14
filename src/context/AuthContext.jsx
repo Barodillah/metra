@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
@@ -15,86 +16,127 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check for saved user in localStorage
-        const savedUser = localStorage.getItem('metra_user');
-        if (savedUser) {
-            setUser(JSON.parse(savedUser));
-        }
-        setLoading(false);
+        // Initial session check
+        const getSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await fetchProfile(session.user);
+            } else {
+                setLoading(false);
+            }
+        };
+
+        getSession();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session?.user) {
+                await fetchProfile(session.user);
+            } else {
+                setUser(null);
+                setLoading(false);
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
+    const fetchProfile = async (authUser) => {
+        try {
+            const [profileResponse, planResponse] = await Promise.all([
+                supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', authUser.id)
+                    .single(),
+                supabase
+                    .from('plans')
+                    .select('plan_type')
+                    .eq('user_id', authUser.id)
+                    .single()
+            ]);
+
+            const profileData = profileResponse.data || {};
+            const planData = planResponse.data || { plan_type: 'free' };
+
+            setUser({
+                ...authUser,
+                ...profileData,
+                plan_type: planData.plan_type
+            });
+
+        } catch (error) {
+            console.error("Error fetching profile/plan:", error);
+            setUser({ ...authUser, plan_type: 'free' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const login = async (email, password) => {
-        // Mock login - in production, call your API
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                if (email && password) {
-                    const userData = {
-                        id: '1',
-                        email,
-                        name: email.split('@')[0],
-                        avatar: null,
-                        birthDate: null,
-                    };
-                    setUser(userData);
-                    localStorage.setItem('metra_user', JSON.stringify(userData));
-                    resolve(userData);
-                } else {
-                    reject(new Error('Email dan password diperlukan'));
-                }
-            }, 800);
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
         });
+
+        if (error) throw error;
+        return data;
     };
 
     const loginWithGoogle = async () => {
-        // Mock Google login - in production, integrate with Firebase/Google OAuth
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const userData = {
-                    id: 'google_123',
-                    email: 'user@gmail.com',
-                    name: 'Metra User',
-                    avatar: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-                    birthDate: null,
-                    provider: 'google',
-                };
-                setUser(userData);
-                localStorage.setItem('metra_user', JSON.stringify(userData));
-                resolve(userData);
-            }, 1000);
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                queryParams: {
+                    access_type: 'offline',
+                    prompt: 'consent',
+                },
+                redirectTo: `${window.location.origin}/dashboard`
+            },
         });
+
+        if (error) throw error;
+        return data;
     };
 
     const register = async (name, email, password) => {
-        // Mock registration
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                if (name && email && password) {
-                    const userData = {
-                        id: Date.now().toString(),
-                        email,
-                        name,
-                        avatar: null,
-                        birthDate: null,
-                    };
-                    setUser(userData);
-                    localStorage.setItem('metra_user', JSON.stringify(userData));
-                    resolve(userData);
-                } else {
-                    reject(new Error('Semua field diperlukan'));
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    name,
                 }
-            }, 800);
+            }
         });
+
+        if (error) throw error;
+        return data;
     };
 
-    const logout = () => {
+    const logout = async () => {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
         setUser(null);
-        localStorage.removeItem('metra_user');
     };
 
-    const updateProfile = (data) => {
-        const updatedUser = { ...user, ...data };
-        setUser(updatedUser);
-        localStorage.setItem('metra_user', JSON.stringify(updatedUser));
+    const updateProfile = async (updates) => {
+        if (!user) return;
+
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update(updates)
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            // Refresh user state
+            setUser(prev => ({ ...prev, ...updates }));
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            throw error;
+        }
     };
 
     const value = {

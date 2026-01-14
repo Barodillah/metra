@@ -8,6 +8,19 @@ import {
     ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getAIResponse } from '../services/ai';
+import { supabase } from '../lib/supabase';
+
+import {
+    getWeton,
+    getZodiac,
+    getLifePathNumber,
+    getShio,
+    getElement,
+    getRulingPlanet,
+    getAscendant,
+    getMoonPhase
+} from '../utils/spiritual';
 
 const ChatBubble = ({ message, isAI }) => (
     <div className={`flex ${isAI ? 'justify-start' : 'justify-end'} mb-4 animate-fade-in`}>
@@ -52,28 +65,121 @@ const ChatbotPage = () => {
         "Dari pembacaan energi harianmu, saya merekomendasikan untuk mengambil keputusan penting di pagi hari antara jam 9-11. Ini adalah periode dengan energi paling optimal untukmu.",
     ];
 
-    const handleSendMessage = (e) => {
+    const handleSendMessage = async (e) => {
         e.preventDefault();
         if (!inputMessage.trim()) return;
 
-        if (chatCount >= 2) {
+        // Limit check: Only for 'free' plan
+        // 'pro' and 'visionary' have unlimited chats
+        if (chatCount >= 2 && (!user?.plan_type || user?.plan_type === 'free')) {
             setShowPaywall(true);
             return;
         }
 
-        const newUserMsg = { text: inputMessage, isAI: false };
+        const userMsgText = inputMessage;
+        const newUserMsg = { text: userMsgText, isAI: false };
         setMessages(prev => [...prev, newUserMsg]);
         setInputMessage('');
-        setChatCount(prev => prev + 1);
         setIsTyping(true);
 
-        // Simulate AI response
-        setTimeout(() => {
-            const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
-            setMessages(prev => [...prev, { text: randomResponse, isAI: true }]);
+        try {
+            // Save user message
+            if (user) {
+                await supabase.from('chats').insert({
+                    user_id: user.id,
+                    message: userMsgText,
+                    is_ai: false
+                });
+            }
+
+            // Dictionary for better readable context
+            let userContext = "";
+            if (user?.birth_date) {
+                const birthDate = user.birth_date;
+                const birthTime = user.birth_time;
+
+                const weton = getWeton(birthDate);
+                const zodiac = getZodiac(birthDate);
+                const shio = getShio(birthDate);
+                const lifePath = getLifePathNumber(birthDate);
+                const element = getElement(zodiac);
+                const planet = getRulingPlanet(zodiac);
+                const ascendant = getAscendant(zodiac, birthTime);
+                const moon = getMoonPhase(birthDate);
+
+                userContext = `
+Nama: ${user.name}
+Tanggal Lahir: ${new Date(birthDate).toLocaleDateString('id-ID')}
+Waktu Lahir: ${birthTime || "Tidak diketahui"}
+Weton: ${weton ? `${weton.day} ${weton.pasaran} (Neptu ${weton.neptu})` : '-'}
+Zodiak: ${zodiac}
+Shio: ${shio}
+Life Path Number: ${lifePath}
+Elemen Dominan: ${element}
+Planet Penguasa: ${planet}
+Ascendant: ${ascendant || '-'}
+Fase Bulan saat lahir: ${moon}
+`;
+            }
+
+            // Get AI Response
+            const aiResponseText = await getAIResponse([
+                ...messages.map(m => ({
+                    role: m.isAI ? "assistant" : "user",
+                    content: m.text
+                })),
+                { role: "user", content: userMsgText }
+            ], userContext);
+
+            // Save AI message
+            if (user) {
+                await supabase.from('chats').insert({
+                    user_id: user.id,
+                    message: aiResponseText,
+                    is_ai: true
+                });
+
+                // Update local chat count
+                setChatCount(prev => prev + 1);
+            }
+
+            setMessages(prev => [...prev, { text: aiResponseText, isAI: true }]);
+        } catch (error) {
+            console.error("Chat Error:", error);
+            setMessages(prev => [...prev, { text: "Maaf, sistem sedang sibuk. Coba lagi nanti.", isAI: true }]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
+
+    useEffect(() => {
+        const loadChats = async () => {
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('chats')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: true });
+
+            if (data && data.length > 0) {
+                setMessages(prev => [
+                    prev[0], // Keep the welcome message
+                    ...data.map(chat => ({
+                        text: chat.message,
+                        isAI: chat.is_ai
+                    }))
+                ]);
+
+                // Simple logic to set initial chat count for today (could be improved)
+                const today = new Date().toISOString().split('T')[0];
+                const todayChats = data.filter(c => c.created_at.startsWith(today) && !c.is_ai).length;
+                setChatCount(todayChats);
+            }
+        };
+
+        loadChats();
+    }, [user]);
 
     return (
         <div className="fixed inset-0 bg-[#0F172A] overflow-hidden">

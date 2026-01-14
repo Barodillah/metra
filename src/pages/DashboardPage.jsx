@@ -24,132 +24,16 @@ import DatePicker from '../components/DatePicker';
 import TimePicker from '../components/TimePicker';
 import AdSlot from '../components/AdSlot';
 
-// Helper functions (from original App.jsx)
-const getWeton = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-    const pasarans = ["Legi", "Paing", "Pon", "Wage", "Kliwon"];
-    const baseDate = new Date(1900, 0, 1);
-    const diffDays = Math.floor((date - baseDate) / (1000 * 60 * 60 * 24));
-    if (diffDays < 0) return { day: days[date.getDay()], pasaran: "Kliwon", neptu: 15 };
-    const dayIdx = date.getDay();
-    const pasaranIdx = (diffDays + 1) % 5;
-    const dayValues = { "Minggu": 5, "Senin": 4, "Selasa": 3, "Rabu": 7, "Kamis": 8, "Jumat": 6, "Sabtu": 9 };
-    const pasaranValues = { "Legi": 5, "Paing": 9, "Pon": 7, "Wage": 4, "Kliwon": 8 };
-    const d = days[dayIdx];
-    const p = pasarans[pasaranIdx];
-    return { day: d, pasaran: p, neptu: dayValues[d] + pasaranValues[p] };
-};
-
-const getZodiac = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    if ((month === 3 && day >= 21) || (month === 4 && day <= 19)) return "Aries";
-    if ((month === 4 && day >= 20) || (month === 5 && day <= 20)) return "Taurus";
-    if ((month === 5 && day >= 21) || (month === 6 && day <= 20)) return "Gemini";
-    if ((month === 6 && day >= 21) || (month === 7 && day <= 22)) return "Cancer";
-    if ((month === 7 && day >= 23) || (month === 8 && day <= 22)) return "Leo";
-    if ((month === 8 && day >= 23) || (month === 9 && day <= 22)) return "Virgo";
-    if ((month === 9 && day >= 23) || (month === 10 && day <= 22)) return "Libra";
-    if ((month === 10 && day >= 23) || (month === 11 && day <= 21)) return "Scorpio";
-    if ((month === 11 && day >= 22) || (month === 12 && day <= 21)) return "Sagittarius";
-    if ((month === 12 && day >= 22) || (month === 1 && day <= 19)) return "Capricorn";
-    if ((month === 1 && day >= 20) || (month === 2 && day <= 18)) return "Aquarius";
-    return "Pisces";
-};
-
-const getLifePathNumber = (dateString) => {
-    if (!dateString) return null;
-    const digits = dateString.replace(/\D/g, '');
-    let sum = digits.split('').reduce((acc, d) => acc + parseInt(d), 0);
-    while (sum > 9 && sum !== 11 && sum !== 22 && sum !== 33) {
-        sum = sum.toString().split('').reduce((acc, d) => acc + parseInt(d), 0);
-    }
-    return sum;
-};
-
-const getShio = (dateString) => {
-    if (!dateString) return null;
-    const year = new Date(dateString).getFullYear();
-    const animals = ["Monyet", "Ayam", "Anjing", "Babi", "Tikus", "Kerbau", "Macan", "Kelinci", "Naga", "Ular", "Kuda", "Kambing"];
-    return animals[year % 12];
-};
-
-const getElement = (zodiac) => {
-    if (!zodiac) return null;
-    const elements = {
-        "Aries": "Api", "Leo": "Api", "Sagittarius": "Api",
-        "Taurus": "Tanah", "Virgo": "Tanah", "Capricorn": "Tanah",
-        "Gemini": "Udara", "Libra": "Udara", "Aquarius": "Udara",
-        "Cancer": "Air", "Scorpio": "Air", "Pisces": "Air"
-    };
-    return elements[zodiac] || "Misteri";
-};
-
-const getRulingPlanet = (zodiac) => {
-    if (!zodiac) return null;
-    const planets = {
-        "Aries": "Mars", "Taurus": "Venus", "Gemini": "Mercury", "Cancer": "Moon",
-        "Leo": "Sun", "Virgo": "Mercury", "Libra": "Venus", "Scorpio": "Pluto",
-        "Sagittarius": "Jupiter", "Capricorn": "Saturn", "Aquarius": "Uranus", "Pisces": "Neptune"
-    };
-    return planets[zodiac] || "Semesta";
-};
-
-const getAscendant = (zodiac, time) => {
-    if (!zodiac || !time) return null;
-    const [hour] = time.split(':').map(Number);
-    // Simple approximation: Ascendant moves 1 sign every 2 hours from sunrise (approx 6 AM)
-    // Sun sign is Ascendant at sunrise.
-    const zodiacs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-    const sunSignIdx = zodiacs.indexOf(zodiac);
-
-    // Offset from 6 AM
-    let offset = Math.floor((hour - 6) / 2);
-    if (offset < 0) offset += 12;
-
-    const risingIdx = (sunSignIdx + offset) % 12;
-    return zodiacs[risingIdx];
-};
-
-const getMoonPhase = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    let year = date.getFullYear();
-    let month = date.getMonth() + 1;
-    let day = date.getDate();
-
-    if (month < 3) {
-        year--;
-        month += 12;
-    }
-
-    ++month;
-    let c = 365.25 * year;
-    let e = 30.6 * month;
-    let jd = c + e + day - 694039.09; // jd is total days elapsed
-    jd /= 29.5305882; // divide by the moon cycle
-    let b = parseInt(jd); // int(jd) -> b, take integer part of jd
-    jd -= b; // subtract integer part to leave fractional part of original jd
-    b = Math.round(jd * 8); // scale fraction from 0-8 and round
-
-    if (b >= 8) b = 0; // 0 and 8 are the same so turn 8 into 0
-
-    switch (b) {
-        case 0: return "New Moon";
-        case 1: return "Waxing Crescent";
-        case 2: return "First Quarter";
-        case 3: return "Waxing Gibbous";
-        case 4: return "Full Moon";
-        case 5: return "Waning Gibbous";
-        case 6: return "Last Quarter";
-        case 7: return "Waning Crescent";
-        default: return "Unknown";
-    }
-};
+import {
+    getWeton,
+    getZodiac,
+    getLifePathNumber,
+    getShio,
+    getElement,
+    getRulingPlanet,
+    getAscendant,
+    getMoonPhase
+} from '../utils/spiritual';
 
 const Card = ({ title, value, subValue, icon: Icon, glowColor }) => (
     <div className={`bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 p-6 rounded-3xl hover:border-white/20 transition-all group overflow-hidden relative hover:translate-y-[-4px]`}>
@@ -172,9 +56,9 @@ const Card = ({ title, value, subValue, icon: Icon, glowColor }) => (
 const DashboardPage = () => {
     const { user, logout, updateProfile } = useAuth();
     const navigate = useNavigate();
-    const [birthDate, setBirthDate] = useState(user?.birthDate || '');
-    const [birthTime, setBirthTime] = useState(user?.birthTime || '');
-    const [showBirthModal, setShowBirthModal] = useState(!user?.birthDate);
+    const [birthDate, setBirthDate] = useState(user?.birth_date || '');
+    const [birthTime, setBirthTime] = useState(user?.birth_time || '');
+    const [showBirthModal, setShowBirthModal] = useState(!user?.birth_date);
 
     // Calculate spiritual data
     const weton = getWeton(birthDate);
@@ -194,16 +78,29 @@ const DashboardPage = () => {
         return `${hour}:00`;
     });
 
-    const handleSaveBirthDate = () => {
+    const handleSaveBirthDate = async () => {
         if (birthDate) {
-            updateProfile({ birthDate, birthTime });
-            setShowBirthModal(false);
+            try {
+                // Determine format for DB (snake_case)
+                await updateProfile({
+                    birth_date: birthDate,
+                    birth_time: birthTime
+                });
+                setShowBirthModal(false);
+            } catch (error) {
+                console.error("Failed to update birth date", error);
+                alert("Gagal menyimpan data. Silakan coba lagi.");
+            }
         }
     };
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/');
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
     };
 
     const todayInsight = [
@@ -431,33 +328,67 @@ const DashboardPage = () => {
                         <AdSlot className="w-full h-40" adFormat="rectangle" />
 
                         <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-[#6366F1] to-[#06B6D4] rounded-3xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500"></div>
+                            <div className={`absolute inset-0 bg-gradient-to-r ${user?.plan_type === 'visionary' ? 'from-amber-400 to-orange-500' :
+                                    user?.plan_type === 'pro' ? 'from-[#6366F1] to-[#06B6D4]' :
+                                        'from-slate-700 to-slate-600'
+                                } rounded-3xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500`}></div>
+
                             <div className="bg-[#1E293B]/80 backdrop-blur-xl border border-white/10 p-6 rounded-3xl relative">
                                 <div className="flex items-center gap-4 mb-6">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6366F1]/20 to-[#06B6D4]/20 flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform duration-300">
-                                        <Crown className="text-[#06B6D4]" size={24} />
+                                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${user?.plan_type === 'visionary' ? 'from-amber-400/20 to-orange-500/20' :
+                                            user?.plan_type === 'pro' ? 'from-[#6366F1]/20 to-[#06B6D4]/20' :
+                                                'from-slate-700/20 to-slate-600/20'
+                                        } flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform duration-300`}>
+                                        <Crown className={
+                                            user?.plan_type === 'visionary' ? 'text-amber-400' :
+                                                user?.plan_type === 'pro' ? 'text-[#06B6D4]' :
+                                                    'text-slate-400'
+                                        } size={24} />
                                     </div>
                                     <div>
                                         <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Status Akun</p>
-                                        <h3 className="text-white font-bold text-lg">Free Plan</h3>
+                                        <h3 className="text-white font-bold text-lg capitalize">{user?.plan_type || 'Free'} Plan</h3>
                                     </div>
                                 </div>
 
                                 <div className="space-y-3 mb-6">
-                                    <div className="flex items-center gap-3 text-sm text-slate-300">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
-                                        <span>2 chat AI gratis / hari</span>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-sm text-slate-500">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
-                                        <span>Fitur Pro terkunci</span>
-                                    </div>
+                                    {user?.plan_type === 'free' ? (
+                                        <>
+                                            <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
+                                                <span>2 chat AI gratis / hari</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-sm text-slate-500">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
+                                                <span>Fitur Pro terkunci</span>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                                <span>Unlimited AI Chat</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                                <span>Akses Penuh Fitur Spiritual</span>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
-                                <button className="w-full bg-gradient-to-r from-[#6366F1] to-[#06B6D4] hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#6366F1]/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5">
-                                    <Zap size={16} className="fill-white/30" />
-                                    Upgrade ke Pro
-                                </button>
+                                {user?.plan_type === 'free' && (
+                                    <button className="w-full bg-gradient-to-r from-[#6366F1] to-[#06B6D4] hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#6366F1]/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5">
+                                        <Zap size={16} className="fill-white/30" />
+                                        Upgrade ke Pro
+                                    </button>
+                                )}
+                                {user?.plan_type === 'pro' && (
+                                    <button className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5">
+                                        <Crown size={16} className="fill-white/30" />
+                                        Go Visionary
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>

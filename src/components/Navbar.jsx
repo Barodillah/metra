@@ -8,10 +8,14 @@ const Navbar = () => {
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = React.useState(false);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
-        setMenuOpen(false);
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/');
+            setMenuOpen(false);
+        } catch (error) {
+            console.error("Logout failed", error);
+        }
     };
 
     return (

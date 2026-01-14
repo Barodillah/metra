@@ -25,7 +25,12 @@ const LoginPage = () => {
             await login(email, password);
             navigate(from, { replace: true });
         } catch (err) {
-            setError(err.message || 'Login gagal. Silakan coba lagi.');
+            console.error(err);
+            if (err.message.includes('Invalid login credentials')) {
+                setError('Email atau password salah.');
+            } else {
+                setError(err.message || 'Login gagal. Silakan coba lagi.');
+            }
         } finally {
             setLoading(false);
         }
