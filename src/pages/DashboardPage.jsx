@@ -11,9 +11,12 @@ import {
     LogOut,
     ChevronRight,
     Zap,
-    TrendingUp,
     User,
-    Crown
+    Crown,
+    Orbit,
+    Globe,
+    Sunrise,
+    Scroll
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
@@ -75,6 +78,79 @@ const getShio = (dateString) => {
     return animals[year % 12];
 };
 
+const getElement = (zodiac) => {
+    if (!zodiac) return null;
+    const elements = {
+        "Aries": "Api", "Leo": "Api", "Sagittarius": "Api",
+        "Taurus": "Tanah", "Virgo": "Tanah", "Capricorn": "Tanah",
+        "Gemini": "Udara", "Libra": "Udara", "Aquarius": "Udara",
+        "Cancer": "Air", "Scorpio": "Air", "Pisces": "Air"
+    };
+    return elements[zodiac] || "Misteri";
+};
+
+const getRulingPlanet = (zodiac) => {
+    if (!zodiac) return null;
+    const planets = {
+        "Aries": "Mars", "Taurus": "Venus", "Gemini": "Mercury", "Cancer": "Moon",
+        "Leo": "Sun", "Virgo": "Mercury", "Libra": "Venus", "Scorpio": "Pluto",
+        "Sagittarius": "Jupiter", "Capricorn": "Saturn", "Aquarius": "Uranus", "Pisces": "Neptune"
+    };
+    return planets[zodiac] || "Semesta";
+};
+
+const getAscendant = (zodiac, time) => {
+    if (!zodiac || !time) return null;
+    const [hour] = time.split(':').map(Number);
+    // Simple approximation: Ascendant moves 1 sign every 2 hours from sunrise (approx 6 AM)
+    // Sun sign is Ascendant at sunrise.
+    const zodiacs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+    const sunSignIdx = zodiacs.indexOf(zodiac);
+
+    // Offset from 6 AM
+    let offset = Math.floor((hour - 6) / 2);
+    if (offset < 0) offset += 12;
+
+    const risingIdx = (sunSignIdx + offset) % 12;
+    return zodiacs[risingIdx];
+};
+
+const getMoonPhase = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    let year = date.getFullYear();
+    let month = date.getMonth() + 1;
+    let day = date.getDate();
+
+    if (month < 3) {
+        year--;
+        month += 12;
+    }
+
+    ++month;
+    let c = 365.25 * year;
+    let e = 30.6 * month;
+    let jd = c + e + day - 694039.09; // jd is total days elapsed
+    jd /= 29.5305882; // divide by the moon cycle
+    let b = parseInt(jd); // int(jd) -> b, take integer part of jd
+    jd -= b; // subtract integer part to leave fractional part of original jd
+    b = Math.round(jd * 8); // scale fraction from 0-8 and round
+
+    if (b >= 8) b = 0; // 0 and 8 are the same so turn 8 into 0
+
+    switch (b) {
+        case 0: return "New Moon";
+        case 1: return "Waxing Crescent";
+        case 2: return "First Quarter";
+        case 3: return "Waxing Gibbous";
+        case 4: return "Full Moon";
+        case 5: return "Waning Gibbous";
+        case 6: return "Last Quarter";
+        case 7: return "Waning Crescent";
+        default: return "Unknown";
+    }
+};
+
 const Card = ({ title, value, subValue, icon: Icon, glowColor }) => (
     <div className={`bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 p-6 rounded-3xl hover:border-white/20 transition-all group overflow-hidden relative hover:translate-y-[-4px]`}>
         <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-[40px] opacity-10 group-hover:opacity-20 transition-all`} style={{ backgroundColor: glowColor }}></div>
@@ -105,6 +181,12 @@ const DashboardPage = () => {
     const zodiac = getZodiac(birthDate);
     const lifePath = getLifePathNumber(birthDate);
     const shio = getShio(birthDate);
+
+    // Additional spiritual data
+    const element = getElement(zodiac);
+    const rulingPlanet = getRulingPlanet(zodiac);
+    const ascendant = getAscendant(zodiac, birthTime);
+    const moonPhase = getMoonPhase(birthDate);
 
     // Generate hour options (00:00 - 23:00)
     const hourOptions = Array.from({ length: 24 }, (_, i) => {
@@ -161,7 +243,7 @@ const DashboardPage = () => {
                 </div>
 
                 {/* Top Banner Ad */}
-                <AdSlot className="mb-8 w-full h-32" adFormat="banner" />
+
 
                 {/* Birth Date Modal */}
                 {showBirthModal && (
@@ -237,8 +319,42 @@ const DashboardPage = () => {
                             title="Shio Cina"
                             value={shio || '-'}
                             subValue="Chinese Zodiac"
-                            icon={Moon}
+                            icon={Scroll}
                             glowColor="#F43F5E"
+                        />
+
+                        {/* Middle Banner Ad */}
+                        <div className="col-span-1 sm:col-span-2 lg:col-span-4">
+                            <AdSlot className="w-full h-32" adFormat="banner" />
+                        </div>
+
+                        <Card
+                            title="Elemen Dominan"
+                            value={element || '-'}
+                            subValue="Unsur Alam"
+                            icon={Globe}
+                            glowColor="#10B981"
+                        />
+                        <Card
+                            title="Planet Penguasa"
+                            value={rulingPlanet || '-'}
+                            subValue="Ruling Planet"
+                            icon={Orbit}
+                            glowColor="#8B5CF6"
+                        />
+                        <Card
+                            title="Ascendant"
+                            value={ascendant || (birthTime ? '?' : 'Butuh Jam')}
+                            subValue={birthTime ? "Rising Sign" : "Set Jam Lahir"}
+                            icon={Sunrise}
+                            glowColor="#FDBA74"
+                        />
+                        <Card
+                            title="Fase Bulan"
+                            value={moonPhase || '-'}
+                            subValue="Moon Phase"
+                            icon={Moon}
+                            glowColor="#E2E8F0"
                         />
                     </div>
                 )}

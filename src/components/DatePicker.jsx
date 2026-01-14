@@ -91,7 +91,7 @@ const getPasaran = (date) => {
 const generateYearRange = () => {
     const currentYear = new Date().getFullYear();
     const years = [];
-    for (let y = currentYear - 100; y <= currentYear + 10; y++) {
+    for (let y = currentYear - 100; y <= currentYear + 1; y++) {
         years.push(y);
     }
     return years;
