@@ -12,12 +12,14 @@ import {
     ChevronRight,
     Zap,
     TrendingUp,
-    User
+    User,
+    Crown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import DatePicker from '../components/DatePicker';
 import TimePicker from '../components/TimePicker';
+import AdSlot from '../components/AdSlot';
 
 // Helper functions (from original App.jsx)
 const getWeton = (dateString) => {
@@ -157,6 +159,9 @@ const DashboardPage = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Top Banner Ad */}
+                <AdSlot className="mb-8 w-full h-32" adFormat="banner" />
 
                 {/* Birth Date Modal */}
                 {showBirthModal && (
@@ -307,19 +312,43 @@ const DashboardPage = () => {
                             </div>
                         </button>
 
-                        <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 p-6 rounded-3xl">
-                            <div className="flex items-center gap-3 mb-4">
-                                <TrendingUp className="text-[#06B6D4]" size={20} />
-                                <span className="text-sm font-bold text-slate-400">Status Akun</span>
+                        <AdSlot className="w-full h-40" adFormat="rectangle" />
+
+                        <div className="relative group">
+                            <div className="absolute inset-0 bg-gradient-to-r from-[#6366F1] to-[#06B6D4] rounded-3xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500"></div>
+                            <div className="bg-[#1E293B]/80 backdrop-blur-xl border border-white/10 p-6 rounded-3xl relative">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#6366F1]/20 to-[#06B6D4]/20 flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform duration-300">
+                                        <Crown className="text-[#06B6D4]" size={24} />
+                                    </div>
+                                    <div>
+                                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-0.5">Status Akun</p>
+                                        <h3 className="text-white font-bold text-lg">Free Plan</h3>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 mb-6">
+                                    <div className="flex items-center gap-3 text-sm text-slate-300">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
+                                        <span>2 chat AI gratis / hari</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-sm text-slate-500">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
+                                        <span>Fitur Pro terkunci</span>
+                                    </div>
+                                </div>
+
+                                <button className="w-full bg-gradient-to-r from-[#6366F1] to-[#06B6D4] hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#6366F1]/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5">
+                                    <Zap size={16} className="fill-white/30" />
+                                    Upgrade ke Pro
+                                </button>
                             </div>
-                            <p className="text-white font-bold text-lg mb-1">Free Plan</p>
-                            <p className="text-slate-500 text-sm mb-4">2 chat AI gratis per hari</p>
-                            <button className="w-full bg-white/5 hover:bg-white/10 border border-white/10 py-3 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all">
-                                Upgrade ke Pro
-                            </button>
                         </div>
                     </div>
                 </div>
+
+                {/* Bottom Banner Ad */}
+                <AdSlot className="mb-12 w-full h-32" adFormat="banner" />
 
                 {/* Logout Button */}
                 <div className="flex justify-center">
