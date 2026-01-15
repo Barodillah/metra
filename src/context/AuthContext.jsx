@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
@@ -16,173 +17,170 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check if this is an OAuth callback (has hash params or access_token in URL)
-        const isOAuthCallback = window.location.hash.includes('access_token') ||
-            window.location.search.includes('code=');
-
-        // Listen for auth changes FIRST - this is important for OAuth redirects
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                if (session?.user) {
-                    await fetchProfile(session.user);
-                }
-            } else if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setLoading(false);
-            } else if (session?.user) {
-                await fetchProfile(session.user);
-            } else if (!isOAuthCallback) {
-                // Only set loading false if this isn't an OAuth callback waiting to process
-                setLoading(false);
-            }
-        });
-
-        // Initial session check
-        const getSession = async () => {
-            try {
-                const { data: { session }, error } = await supabase.auth.getSession();
-                if (error) {
-                    console.error('Session error:', error);
-                    setLoading(false);
-                    return;
-                }
-
-                if (session?.user) {
-                    await fetchProfile(session.user);
-                } else if (!isOAuthCallback) {
-                    // Only set loading false if we're not waiting for OAuth callback
-                    setLoading(false);
-                }
-            } catch (error) {
-                console.error('Error getting session:', error);
-                setLoading(false);
-            }
-        };
-
-        getSession();
-
-        // Safety timeout to prevent infinite loading on OAuth callback issues
-        const timeout = setTimeout(() => {
-            setLoading(prev => {
-                if (prev) {
-                    console.warn('Auth loading timeout - forcing completion');
-                    return false;
-                }
-                return prev;
-            });
-        }, 5000);
-
-        return () => {
-            subscription.unsubscribe();
-            clearTimeout(timeout);
-        };
+        // Check for existing token on mount
+        const token = localStorage.getItem('metra_token');
+        if (token) {
+            fetchCurrentUser(token);
+        } else {
+            setLoading(false);
+        }
     }, []);
 
-    const fetchProfile = async (authUser) => {
+    const fetchCurrentUser = async (token) => {
         try {
-            const [profileResponse, planResponse] = await Promise.all([
-                supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', authUser.id)
-                    .single(),
-                supabase
-                    .from('plans')
-                    .select('plan_type')
-                    .eq('user_id', authUser.id)
-                    .single()
-            ]);
-
-            const profileData = profileResponse.data || {};
-            const planData = planResponse.data || { plan_type: 'free' };
-
-            setUser({
-                ...authUser,
-                ...profileData,
-                plan_type: planData.plan_type
+            const response = await fetch(`${API_URL}/auth/me`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
             });
 
+            if (response.ok) {
+                const data = await response.json();
+                setUser(data.user);
+            } else {
+                // Token invalid, remove it
+                localStorage.removeItem('metra_token');
+            }
         } catch (error) {
-            console.error("Error fetching profile/plan:", error);
-            setUser({ ...authUser, plan_type: 'free' });
+            console.error('Error fetching user:', error);
+            localStorage.removeItem('metra_token');
         } finally {
             setLoading(false);
         }
     };
 
-    const login = async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) throw error;
-        return data;
-    };
-
-    const loginWithGoogle = async () => {
-        const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                queryParams: {
-                    access_type: 'offline',
-                    prompt: 'consent',
-                },
-                redirectTo: `${window.location.origin}/dashboard`
-            },
-        });
-
-        if (error) throw error;
-        return data;
-    };
-
     const register = async (name, email, password) => {
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    name,
-                }
-            }
+        const response = await fetch(`${API_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password })
         });
 
-        if (error) throw error;
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Registrasi gagal');
+        }
+
+        return data;
+    };
+
+    const verifyOtp = async (email, otp) => {
+        const response = await fetch(`${API_URL}/auth/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, otp })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Verifikasi gagal');
+        }
+
+        // Save token and set user
+        localStorage.setItem('metra_token', data.token);
+        setUser(data.user);
+
+        return data;
+    };
+
+    const resendOtp = async (email) => {
+        const response = await fetch(`${API_URL}/auth/send-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Gagal mengirim OTP');
+        }
+
+        return data;
+    };
+
+    const login = async (email, password) => {
+        const response = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            // Check if needs verification
+            if (data.needsVerification) {
+                throw { message: data.error, needsVerification: true, email: data.email };
+            }
+            throw new Error(data.error || 'Login gagal');
+        }
+
+        // Save token and set user
+        localStorage.setItem('metra_token', data.token);
+        setUser(data.user);
+
+        return data;
+    };
+
+    const loginWithGoogle = async (credential) => {
+        const response = await fetch(`${API_URL}/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Login Google gagal');
+        }
+
+        // Save token and set user
+        localStorage.setItem('metra_token', data.token);
+        setUser(data.user);
+
         return data;
     };
 
     const logout = async () => {
-        const { error } = await supabase.auth.signOut();
-        if (error) throw error;
+        localStorage.removeItem('metra_token');
         setUser(null);
     };
 
     const updateProfile = async (updates) => {
-        if (!user) return;
+        const token = localStorage.getItem('metra_token');
 
-        try {
-            const { error } = await supabase
-                .from('profiles')
-                .update(updates)
-                .eq('id', user.id);
+        const response = await fetch(`${API_URL}/auth/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updates)
+        });
 
-            if (error) throw error;
+        const data = await response.json();
 
-            // Refresh user state
-            setUser(prev => ({ ...prev, ...updates }));
-        } catch (error) {
-            console.error("Error updating profile:", error);
-            throw error;
+        if (!response.ok) {
+            throw new Error(data.error || 'Update profil gagal');
         }
+
+        setUser(prev => ({ ...prev, ...data.user }));
+        return data;
     };
 
     const value = {
         user,
         loading,
         isAuthenticated: !!user,
+        register,
+        verifyOtp,
+        resendOtp,
         login,
         loginWithGoogle,
-        register,
         logout,
         updateProfile,
     };

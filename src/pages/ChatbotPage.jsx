@@ -9,8 +9,6 @@ import {
     Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { getAIResponse } from '../services/ai';
-import { supabase } from '../lib/supabase';
 
 import {
     getWeton,
@@ -22,6 +20,36 @@ import {
     getAscendant,
     getMoonPhase
 } from '../utils/spiritual';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+// Helper: Format chat message (bold, line breaks)
+const formatMessage = (text) => {
+    if (!text) return null;
+
+    // Split by line breaks
+    const lines = text.split('\n');
+
+    return lines.map((line, lineIndex) => {
+        // Process bold text (**text**)
+        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+
+        const formattedLine = parts.map((part, partIndex) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                // Remove ** and make bold
+                return <strong key={partIndex} className="font-bold">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+        });
+
+        return (
+            <React.Fragment key={lineIndex}>
+                {formattedLine}
+                {lineIndex < lines.length - 1 && <br />}
+            </React.Fragment>
+        );
+    });
+};
 
 // Helper function untuk mendapatkan hari dan tanggal dalam Bahasa Indonesia
 const getCurrentDateInfo = () => {
@@ -49,7 +77,9 @@ const ChatBubble = ({ message, isAI }) => (
             ? 'bg-[#1E293B] border border-white/5 text-slate-200 shadow-black/20'
             : 'bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white shadow-[#6366F1]/20'
             }`}>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message}</p>
+            <div className="text-sm leading-relaxed">
+                {formatMessage(message)}
+            </div>
         </div>
     </div>
 );
@@ -58,19 +88,21 @@ const ChatbotPage = () => {
     const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
     const messagesEndRef = useRef(null);
+    const sessionIdRef = useRef(null);
 
     // Get current date info
     const dateInfo = getCurrentDateInfo();
 
     const [messages, setMessages] = useState([
         {
-            text: `Halo${user?.name ? ` ${user.name}` : ''}! 👋\n\nHari ini adalah ${dateInfo.fullDate}.\n\nSaya Metra AI Advisor, asisten spiritual digitalmu. Saya bisa membantu kamu memahami:\n\n• Makna Weton & Neptu\n• Interpretasi Zodiak\n• Life Path Number\n• Waktu terbaik untuk keputusan penting\n\nApa yang ingin kamu ketahui hari ini?`,
+            text: `Halo${user?.name ? ` ${user.name}` : ''}! 👋\n\nHari ini adalah ${dateInfo.fullDate}.\n\nSaya **Metra AI Advisor**, asisten spiritual digitalmu. Saya bisa membantu kamu memahami:\n\n• **Makna Weton & Neptu**\n• **Interpretasi Zodiak**\n• **Life Path Number**\n• **Waktu terbaik** untuk keputusan penting\n\nApa yang ingin kamu ketahui hari ini?`,
             isAI: true
         }
     ]);
     const [inputMessage, setInputMessage] = useState('');
+    const [sessionId, setSessionId] = useState(null);
     const [chatCount, setChatCount] = useState(0);
-    const [aiResponseCount, setAiResponseCount] = useState(0); // Track AI responses for free plan
+    const [aiResponseCount, setAiResponseCount] = useState(0);
     const [showPaywall, setShowPaywall] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
 
@@ -82,71 +114,63 @@ const ChatbotPage = () => {
         scrollToBottom();
     }, [messages]);
 
-    // Clear chat function - hanya clear tampilan, data tetap di DB
-    const handleClearChat = () => {
-        const initialMessage = {
-            text: `Halo${user?.name ? ` ${user.name}` : ''}! 👋\n\nHari ini adalah ${dateInfo.fullDate}.\n\nSaya Metra AI Advisor, asisten spiritual digitalmu. Saya bisa membantu kamu memahami:\n\n• Makna Weton & Neptu\n• Interpretasi Zodiak\n• Life Path Number\n• Waktu terbaik untuk keputusan penting\n\nApa yang ingin kamu ketahui hari ini?`,
-            isAI: true
-        };
-        setMessages([initialMessage]);
-        setAiResponseCount(0);
-        setShowPaywall(false);
-    };
-
-    // Check if user has paid plan (pro or visionary)
-    const isPaidUser = user?.plan_type && user.plan_type !== 'free';
-
-    const aiResponses = [
-        "Berdasarkan analisis energi kosmik, hari ini adalah waktu yang tepat untuk memulai proyek baru. Weton kamu menunjukkan kekuatan pada aspek kreativitas dan komunikasi.",
-        "Menarik sekali! Dari perspektif numerologi, angka Life Path-mu mengindikasikan kemampuan kepemimpinan yang kuat. Gunakan ini untuk mengambil inisiatif dalam pekerjaanmu.",
-        "Kombinasi Shio dan Zodiak-mu menciptakan sinergi unik. Bulan ini, fokuskan energimu pada hubungan interpersonal - ada kesempatan besar untuk kolaborasi yang menguntungkan.",
-        "Sesuai dengan siklus Neptu, minggu depan akan menjadi periode refleksi yang baik. Gunakan waktu ini untuk merenungkan tujuan jangka panjangmu.",
-        "Dari pembacaan energi harianmu, saya merekomendasikan untuk mengambil keputusan penting di pagi hari antara jam 9-11. Ini adalah periode dengan energi paling optimal untukmu.",
-    ];
-
-    const handleSendMessage = async (e) => {
-        e.preventDefault();
-        if (!inputMessage.trim()) return;
-
-        // Limit check: Only for 'free' plan
-        // 'pro' and 'visionary' have unlimited chats
-        if (chatCount >= 2 && (!user?.plan_type || user?.plan_type === 'free')) {
-            setShowPaywall(true);
-            return;
-        }
-
-        const userMsgText = inputMessage;
-        const newUserMsg = { text: userMsgText, isAI: false };
-        setMessages(prev => [...prev, newUserMsg]);
-        setInputMessage('');
-        setIsTyping(true);
-
-        try {
-            // Save user message
-            if (user) {
-                await supabase.from('chats').insert({
-                    user_id: user.id,
-                    message: userMsgText,
-                    is_ai: false
-                });
+    // Create session when page opens (for authenticated users)
+    useEffect(() => {
+        const createSession = async () => {
+            if (isAuthenticated && !sessionIdRef.current) {
+                try {
+                    const token = localStorage.getItem('metra_token');
+                    const res = await fetch(`${API_URL}/chat/sessions`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const data = await res.json();
+                    if (data.session_id) {
+                        sessionIdRef.current = data.session_id;
+                        setSessionId(data.session_id);
+                    }
+                } catch (error) {
+                    console.error('Failed to create session:', error);
+                }
             }
+        };
+        createSession();
 
-            // Dictionary for better readable context
-            let userContext = "";
-            if (user?.birth_date) {
-                const birthDate = user.birth_date;
-                const birthTime = user.birth_time;
+        // End session when page closes/unmounts
+        return () => {
+            if (sessionIdRef.current && isAuthenticated) {
+                const token = localStorage.getItem('metra_token');
+                // Use sendBeacon for reliable delivery on page close
+                const data = JSON.stringify({ summary: null });
+                navigator.sendBeacon(
+                    `${API_URL}/chat/sessions/${sessionIdRef.current}/end`,
+                    new Blob([data], { type: 'application/json' })
+                );
+            }
+        };
+    }, [isAuthenticated]);
 
-                const weton = getWeton(birthDate);
-                const zodiac = getZodiac(birthDate);
-                const shio = getShio(birthDate);
-                const lifePath = getLifePathNumber(birthDate);
-                const element = getElement(zodiac);
-                const planet = getRulingPlanet(zodiac);
-                const ascendant = getAscendant(zodiac, birthTime);
-                const moon = getMoonPhase(birthDate);
+    // Build user context for AI
+    const buildUserContext = () => {
+        if (!user?.birth_datetime) return "";
 
-                userContext = `
+        const birthDateTime = new Date(user.birth_datetime);
+        const birthDate = birthDateTime.toISOString().split('T')[0];
+        const birthTime = birthDateTime.toTimeString().slice(0, 5);
+
+        const weton = getWeton(birthDate);
+        const zodiac = getZodiac(birthDate);
+        const shio = getShio(birthDate);
+        const lifePath = getLifePathNumber(birthDate);
+        const element = getElement(zodiac);
+        const planet = getRulingPlanet(zodiac);
+        const ascendant = getAscendant(zodiac, birthTime);
+        const moon = getMoonPhase(birthDate);
+
+        return `
 Nama: ${user.name}
 Tanggal Lahir: ${new Date(birthDate).toLocaleDateString('id-ID')}
 Waktu Lahir: ${birthTime || "Tidak diketahui"}
@@ -159,36 +183,126 @@ Planet Penguasa: ${planet}
 Ascendant: ${ascendant || '-'}
 Fase Bulan saat lahir: ${moon}
 `;
+    };
+
+    // Clear chat and start new session
+    const handleClearChat = async () => {
+        // End current session
+        if (sessionId && isAuthenticated) {
+            try {
+                const token = localStorage.getItem('metra_token');
+                await fetch(`${API_URL}/chat/sessions/${sessionId}/end`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ summary: 'Session cleared by user' })
+                });
+            } catch (error) {
+                console.error('Failed to end session:', error);
             }
+        }
 
-            // Get AI Response
-            const aiResponseText = await getAIResponse([
-                ...messages.map(m => ({
-                    role: m.isAI ? "assistant" : "user",
-                    content: m.text
-                })),
-                { role: "user", content: userMsgText }
-            ], userContext);
+        // Create new session
+        if (isAuthenticated) {
+            try {
+                const token = localStorage.getItem('metra_token');
+                const res = await fetch(`${API_URL}/chat/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const data = await res.json();
+                if (data.session_id) {
+                    sessionIdRef.current = data.session_id;
+                    setSessionId(data.session_id);
+                }
+            } catch (error) {
+                console.error('Failed to create new session:', error);
+            }
+        }
 
-            // Save AI message
-            if (user) {
-                await supabase.from('chats').insert({
-                    user_id: user.id,
-                    message: aiResponseText,
-                    is_ai: true
+        const initialMessage = {
+            text: `Halo${user?.name ? ` ${user.name}` : ''}! 👋\n\nHari ini adalah ${dateInfo.fullDate}.\n\nSaya **Metra AI Advisor**, asisten spiritual digitalmu. Saya bisa membantu kamu memahami:\n\n• **Makna Weton & Neptu**\n• **Interpretasi Zodiak**\n• **Life Path Number**\n• **Waktu terbaik** untuk keputusan penting\n\nApa yang ingin kamu ketahui hari ini?`,
+            isAI: true
+        };
+        setMessages([initialMessage]);
+        setAiResponseCount(0);
+        setShowPaywall(false);
+    };
+
+    // Check if user has paid plan
+    const isPaidUser = user?.plan_type && user.plan_type !== 'free';
+
+    const handleSendMessage = async (e) => {
+        e.preventDefault();
+        if (!inputMessage.trim()) return;
+
+        // Limit check for free users
+        if (chatCount >= 2 && (!user?.plan_type || user?.plan_type === 'free')) {
+            setShowPaywall(true);
+            return;
+        }
+
+        const userMsgText = inputMessage;
+        const newUserMsg = { text: userMsgText, isAI: false };
+        setMessages(prev => [...prev, newUserMsg]);
+        setInputMessage('');
+        setIsTyping(true);
+
+        try {
+            const userContext = buildUserContext();
+            let aiResponseText = '';
+
+            if (isAuthenticated && sessionId) {
+                // Use session-based chat API
+                const token = localStorage.getItem('metra_token');
+                const res = await fetch(`${API_URL}/chat/sessions/${sessionId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: userMsgText,
+                        userContext
+                    })
                 });
 
-                // Update local chat count
-                setChatCount(prev => prev + 1);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                aiResponseText = data.ai_message.content;
+            } else {
+                // Use quick chat API for guests
+                const res = await fetch(`${API_URL}/chat/quick`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        messages: [
+                            ...messages.map(m => ({
+                                role: m.isAI ? "assistant" : "user",
+                                content: m.text
+                            })),
+                            { role: "user", content: userMsgText }
+                        ],
+                        userContext
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                aiResponseText = data.content;
             }
 
+            setChatCount(prev => prev + 1);
             setMessages(prev => [...prev, { text: aiResponseText, isAI: true }]);
 
-            // Increment AI response count for free plan paywall trigger
             const newAiResponseCount = aiResponseCount + 1;
             setAiResponseCount(newAiResponseCount);
 
-            // Show paywall after AI has responded 2 times for free users
             if (!isPaidUser && newAiResponseCount >= 2) {
                 setShowPaywall(true);
             }
@@ -199,42 +313,6 @@ Fase Bulan saat lahir: ${moon}
             setIsTyping(false);
         }
     };
-
-    useEffect(() => {
-        const loadChats = async () => {
-            if (!user) return;
-
-            const { data, error } = await supabase
-                .from('chats')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: true });
-
-            if (data && data.length > 0) {
-                setMessages(prev => [
-                    prev[0], // Keep the welcome message
-                    ...data.map(chat => ({
-                        text: chat.message,
-                        isAI: chat.is_ai
-                    }))
-                ]);
-
-                // Simple logic to set initial chat count for today (could be improved)
-                const today = new Date().toISOString().split('T')[0];
-                const todayChats = data.filter(c => c.created_at.startsWith(today) && !c.is_ai).length;
-                const todayAiChats = data.filter(c => c.created_at.startsWith(today) && c.is_ai).length;
-                setChatCount(todayChats);
-                setAiResponseCount(todayAiChats);
-
-                // Check if free user already hit limit
-                if ((!user?.plan_type || user?.plan_type === 'free') && todayAiChats >= 2) {
-                    setShowPaywall(true);
-                }
-            }
-        };
-
-        loadChats();
-    }, [user]);
 
     return (
         <div className="fixed inset-0 bg-[#0F172A] overflow-hidden">
@@ -269,12 +347,10 @@ Fase Bulan saat lahir: ${moon}
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* Show date info */}
                         <div className="hidden sm:block text-[10px] text-slate-500 font-medium">
                             {dateInfo.fullDate}
                         </div>
 
-                        {/* Clear chat button - only for paid users */}
                         {isPaidUser && (
                             <button
                                 onClick={handleClearChat}
@@ -285,7 +361,6 @@ Fase Bulan saat lahir: ${moon}
                             </button>
                         )}
 
-                        {/* Free chat counter - only for free users */}
                         {!isPaidUser && (
                             <div className="text-[10px] bg-white/5 border border-white/10 px-4 py-2 rounded-full text-slate-400 font-bold uppercase tracking-tighter">
                                 {Math.max(0, 2 - aiResponseCount)} free chat

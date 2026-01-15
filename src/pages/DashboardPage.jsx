@@ -56,9 +56,21 @@ const Card = ({ title, value, subValue, icon: Icon, glowColor }) => (
 const DashboardPage = () => {
     const { user, logout, updateProfile } = useAuth();
     const navigate = useNavigate();
-    const [birthDate, setBirthDate] = useState(user?.birth_date || '');
-    const [birthTime, setBirthTime] = useState(user?.birth_time || '');
-    const [showBirthModal, setShowBirthModal] = useState(!user?.birth_date);
+
+    // Parse birth_datetime into date and time parts for display
+    const parseBirthDateTime = (dateTime) => {
+        if (!dateTime) return { date: '', time: '' };
+        const dt = new Date(dateTime);
+        const date = dt.toISOString().split('T')[0];
+        const time = dt.toTimeString().slice(0, 5);
+        return { date, time };
+    };
+
+    const { date: initialDate, time: initialTime } = parseBirthDateTime(user?.birth_datetime);
+
+    const [birthDate, setBirthDate] = useState(initialDate);
+    const [birthTime, setBirthTime] = useState(initialTime);
+    const [showBirthModal, setShowBirthModal] = useState(!user?.birth_datetime);
 
     // Calculate spiritual data
     const weton = getWeton(birthDate);
@@ -81,11 +93,11 @@ const DashboardPage = () => {
     const handleSaveBirthDate = async () => {
         if (birthDate) {
             try {
-                // Determine format for DB (snake_case)
-                await updateProfile({
-                    birth_date: birthDate,
-                    birth_time: birthTime
-                });
+                // Combine date and time into birth_datetime
+                const timeStr = birthTime || '00:00';
+                const birth_datetime = `${birthDate}T${timeStr}:00`;
+
+                await updateProfile({ birth_datetime });
                 setShowBirthModal(false);
             } catch (error) {
                 console.error("Failed to update birth date", error);
@@ -125,9 +137,17 @@ const DashboardPage = () => {
                 {/* Welcome Header */}
                 <div className="mb-12 animate-fade-in">
                     <div className="flex items-center gap-4 mb-4">
-                        <div className="w-14 h-14 bg-gradient-to-tr from-[#6366F1] to-[#06B6D4] rounded-2xl flex items-center justify-center shadow-lg shadow-[#6366F1]/20">
-                            <User className="text-white" size={28} />
-                        </div>
+                        {user?.avatar_url ? (
+                            <img
+                                src={user.avatar_url}
+                                alt={user.name}
+                                className="w-14 h-14 rounded-2xl object-cover shadow-lg shadow-[#6366F1]/20"
+                            />
+                        ) : (
+                            <div className="w-14 h-14 bg-gradient-to-tr from-[#6366F1] to-[#06B6D4] rounded-2xl flex items-center justify-center shadow-lg shadow-[#6366F1]/20">
+                                <User className="text-white" size={28} />
+                            </div>
+                        )}
                         <div>
                             <h1 className="text-3xl font-black text-white tracking-tight">
                                 Selamat Datang, {user?.name || 'Penjelajah'}!
@@ -329,15 +349,15 @@ const DashboardPage = () => {
 
                         <div className="relative group">
                             <div className={`absolute inset-0 bg-gradient-to-r ${user?.plan_type === 'visionary' ? 'from-amber-400 to-orange-500' :
-                                    user?.plan_type === 'pro' ? 'from-[#6366F1] to-[#06B6D4]' :
-                                        'from-slate-700 to-slate-600'
+                                user?.plan_type === 'pro' ? 'from-[#6366F1] to-[#06B6D4]' :
+                                    'from-slate-700 to-slate-600'
                                 } rounded-3xl blur opacity-25 group-hover:opacity-40 transition-opacity duration-500`}></div>
 
                             <div className="bg-[#1E293B]/80 backdrop-blur-xl border border-white/10 p-6 rounded-3xl relative">
                                 <div className="flex items-center gap-4 mb-6">
                                     <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${user?.plan_type === 'visionary' ? 'from-amber-400/20 to-orange-500/20' :
-                                            user?.plan_type === 'pro' ? 'from-[#6366F1]/20 to-[#06B6D4]/20' :
-                                                'from-slate-700/20 to-slate-600/20'
+                                        user?.plan_type === 'pro' ? 'from-[#6366F1]/20 to-[#06B6D4]/20' :
+                                            'from-slate-700/20 to-slate-600/20'
                                         } flex items-center justify-center border border-white/5 group-hover:scale-110 transition-transform duration-300`}>
                                         <Crown className={
                                             user?.plan_type === 'visionary' ? 'text-amber-400' :
