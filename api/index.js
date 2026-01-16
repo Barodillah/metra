@@ -4,6 +4,7 @@ import cors from 'cors';
 // Import route handlers
 import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 // Initialize database and email
 import './db.js';
@@ -32,6 +33,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
