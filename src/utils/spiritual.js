@@ -54,15 +54,91 @@ export const getShio = (dateString) => {
     return animals[year % 12];
 };
 
-export const getElement = (zodiac) => {
-    if (!zodiac) return null;
-    const elements = {
-        "Aries": "Api", "Leo": "Api", "Sagittarius": "Api",
-        "Taurus": "Tanah", "Virgo": "Tanah", "Capricorn": "Tanah",
-        "Gemini": "Udara", "Libra": "Udara", "Aquarius": "Udara",
-        "Cancer": "Air", "Scorpio": "Air", "Pisces": "Air"
+// BaZi Constants and Helpers
+const HEAVENLY_STEMS = [
+    { name: '甲', element: 'Kayu' }, { name: '乙', element: 'Kayu' },
+    { name: '丙', element: 'Api' }, { name: '丁', element: 'Api' },
+    { name: '戊', element: 'Tanah' }, { name: '己', element: 'Tanah' },
+    { name: '庚', element: 'Logam' }, { name: '辛', element: 'Logam' },
+    { name: '壬', element: 'Air' }, { name: '癸', element: 'Air' }
+];
+
+const EARTHLY_BRANCHES = [
+    { name: '子', animal: 'Tikus', element: 'Air' }, { name: '丑', animal: 'Kerbau', element: 'Tanah' },
+    { name: '寅', animal: 'Macan', element: 'Kayu' }, { name: '卯', animal: 'Kelinci', element: 'Kayu' },
+    { name: '辰', animal: 'Naga', element: 'Tanah' }, { name: '巳', animal: 'Ular', element: 'Api' },
+    { name: '午', animal: 'Kuda', element: 'Api' }, { name: '未', animal: 'Kambing', element: 'Tanah' },
+    { name: '申', animal: 'Monyet', element: 'Logam' }, { name: '酉', animal: 'Ayam', element: 'Logam' },
+    { name: '戌', animal: 'Anjing', element: 'Tanah' }, { name: '亥', animal: 'Babi', element: 'Air' }
+];
+
+const getBaZiPillars = (dateString, timeString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+
+    // Parse hour
+    let hour = 12;
+    if (timeString) {
+        const parts = timeString.split(':');
+        hour = parseInt(parts[0]) || 12;
+    }
+
+    // Year
+    const yearStem = HEAVENLY_STEMS[(year - 4) % 10];
+    const yearBranch = EARTHLY_BRANCHES[(year - 4) % 12];
+
+    // Month (Simplified)
+    let adjustedMonth = month;
+    if (day < 6) adjustedMonth = month === 1 ? 12 : month - 1;
+    const monthStem = HEAVENLY_STEMS[((year - 4) % 5 * 2 + adjustedMonth - 1) % 10];
+    const monthBranch = EARTHLY_BRANCHES[(adjustedMonth + 1) % 12];
+
+    // Day (Simplified)
+    const baseDate = new Date(1900, 0, 31);
+    const diffDays = Math.floor((date - baseDate) / (1000 * 60 * 60 * 24));
+    const dayStem = HEAVENLY_STEMS[(diffDays % 10 + 10) % 10];
+    const dayBranch = EARTHLY_BRANCHES[(diffDays % 12 + 12) % 12];
+
+    // Hour
+    let hourBranchIdx = (hour >= 23 || hour < 1) ? 0 : Math.floor((hour + 1) / 2);
+    const hourStem = HEAVENLY_STEMS[(dayStem ? HEAVENLY_STEMS.indexOf(dayStem) % 5 * 2 + hourBranchIdx : 0) % 10];
+    const hourBranch = EARTHLY_BRANCHES[hourBranchIdx];
+
+    return {
+        year: { stem: yearStem, branch: yearBranch },
+        month: { stem: monthStem, branch: monthBranch },
+        day: { stem: dayStem, branch: dayBranch },
+        hour: { stem: hourStem, branch: hourBranch }
     };
-    return elements[zodiac] || "Misteri";
+};
+
+export const getElement = (dateString, timeString = '12:00') => {
+    if (!dateString) return null;
+
+    const pillars = getBaZiPillars(dateString, timeString);
+    if (!pillars) return "Misteri";
+
+    const counts = { Kayu: 0, Api: 0, Tanah: 0, Logam: 0, Air: 0 };
+    [pillars.year, pillars.month, pillars.day, pillars.hour].forEach(p => {
+        if (p.stem) counts[p.stem.element]++;
+        if (p.branch) counts[p.branch.element]++;
+    });
+
+    // Find strongest
+    let maxCount = -1;
+    let dominant = 'Misteri';
+
+    Object.entries(counts).forEach(([el, count]) => {
+        if (count > maxCount) {
+            maxCount = count;
+            dominant = el;
+        }
+    });
+
+    return dominant;
 };
 
 export const getRulingPlanet = (zodiac) => {

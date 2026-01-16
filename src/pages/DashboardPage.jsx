@@ -219,7 +219,7 @@ const DashboardPage = () => {
     const shio = getShio(birthDate);
 
     // Additional spiritual data
-    const element = getElement(zodiac);
+    const element = getElement(birthDate, birthTime);
     const rulingPlanet = getRulingPlanet(zodiac);
     const ascendant = getAscendant(zodiac, birthTime);
     const moonPhase = getMoonPhase(birthDate);
@@ -466,10 +466,28 @@ const DashboardPage = () => {
 
                         <Card
                             title="Elemen Dominan"
-                            value={element || '-'}
-                            subValue="Unsur Alam"
+                            value={
+                                (user?.plan_type !== 'free' && insights?.bazi?.elements?.breakdown?.[0]?.element)
+                                    ? insights.bazi.elements.breakdown[0].element
+                                    : (element || '-')
+                            }
+                            subValue={
+                                (user?.plan_type !== 'free' && insights?.bazi?.elements?.breakdown?.[0]?.element)
+                                    ? "Dominan BaZi"
+                                    : "Unsur Alam"
+                            }
                             icon={Globe}
-                            glowColor="#10B981"
+                            glowColor={
+                                (user?.plan_type !== 'free' && insights?.bazi?.elements?.breakdown?.[0]?.element)
+                                    ? (
+                                        insights.bazi.elements.breakdown[0].element === 'Api' ? '#EF4444' :
+                                            insights.bazi.elements.breakdown[0].element === 'Kayu' ? '#10B981' :
+                                                insights.bazi.elements.breakdown[0].element === 'Tanah' ? '#D97706' :
+                                                    insights.bazi.elements.breakdown[0].element === 'Logam' ? '#94A3B8' :
+                                                        '#3B82F6'
+                                    )
+                                    : "#10B981"
+                            }
                         />
                         <Card
                             title="Planet Penguasa"

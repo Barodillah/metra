@@ -211,7 +211,7 @@ const ChatbotPage = () => {
         const zodiac = getZodiac(birthDate);
         const shio = getShio(birthDate);
         const lifePath = getLifePathNumber(birthDate);
-        const element = getElement(zodiac);
+        const element = getElement(birthDate, birthTime);
         const planet = getRulingPlanet(zodiac);
         const ascendant = getAscendant(zodiac, birthTime);
         const moon = getMoonPhase(birthDate);
