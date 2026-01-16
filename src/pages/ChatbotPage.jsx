@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import toast, { Toaster } from 'react-hot-toast';
 import {
     Sparkles,
@@ -51,6 +51,7 @@ const getCurrentDateInfo = () => {
 const ChatbotPage = () => {
     const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const messagesEndRef = useRef(null);
     const sessionIdRef = useRef(null);
     const sessionStartTimeRef = useRef(null);
@@ -72,6 +73,27 @@ const ChatbotPage = () => {
     const [isTyping, setIsTyping] = useState(false);
     const [isLoadingSession, setIsLoadingSession] = useState(true);
     const [isClearing, setIsClearing] = useState(false);
+    const [isNavigatingBack, setIsNavigatingBack] = useState(false);
+    const [chatFocus, setChatFocus] = useState(() => {
+        // If coming from navigation state (like dashboard), use that focus
+        const initialFocus = location.state?.focus;
+        // BUT strict verify: if user is FREE, they can't start with focused topic
+        const isPaid = user?.plan_type && user.plan_type !== 'free'; // Check again here as isPaidUser constant isn't available in initial state
+        if (!isPaid && initialFocus && initialFocus !== 'Semua') {
+            return 'Semua';
+        }
+        return initialFocus || 'Semua';
+    });
+
+    const topics = [
+        { id: 'Semua', label: 'Semua', icon: '✨' },
+        { id: 'BaZi', label: 'BaZi', icon: '🎋' },
+        { id: 'Zodiak', label: 'Zodiak', icon: '♈' },
+        { id: 'Weton', label: 'Weton', icon: '🗓️' },
+        { id: 'Numerology', label: 'Numerology', icon: '🔢' },
+        { id: 'Tarot', label: 'Tarot', icon: '🃏' },
+        { id: 'Feng Shui', label: 'Feng Shui', icon: '🎐' }
+    ];
 
     // Check if user has paid plan
     const isPaidUser = user?.plan_type && user.plan_type !== 'free';
@@ -194,6 +216,19 @@ const ChatbotPage = () => {
         const ascendant = getAscendant(zodiac, birthTime);
         const moon = getMoonPhase(birthDate);
 
+        // Specific instruction templates for each focus
+        const focusInstructions = {
+            'Semua': 'Gunakan pendekatan holistik yang menggabungkan berbagai disiplin ilmu (BaZi, Zodiak, Weton, dll) untuk memberikan jawaban yang lengkap dan seimbang.',
+            'BaZi': 'FOKUS MUTLAK PADA BAZI (Four Pillars of Destiny). Analisis hanya menggunakan elemen Day Master, interaksi 5 Elemen (Wu Xing), Kekuatan Diri, dan Dewa-Dewa (Shen Sha). Abaikan sistem lain kecuali diminta eksplisit.',
+            'Zodiak': 'FOKUS MUTLAK PADA ASTROLOGI BARAT (Zodiak). Analisis berdasarkan posisi Matahari (Sun Sign), Bulan (Moon Sign), Ascendant (Rising Sign), dan aspek planet. Gunakan istilah astrologi seperti transit, rumah (house), dan aspek.',
+            'Weton': 'FOKUS MUTLAK PADA PRIMBON JAWA (Weton). Analisis berdasarkan hari dan pasaran, Neptu, Naga Hari, dan watak kelahiran menurut Primbon. Gunakan istilah Jawa yang relevan.',
+            'Numerology': 'FOKUS MUTLAK PADA NUMEROLOGI. Analisis berdasarkan Life Path Number, Destiny Number, dan siklus tahunan pribadi. Jelaskan makna angka-angka tersebut dalam konteks pertanyaan user.',
+            'Tarot': 'BERTINDAK SEBAGAI PEMBACA TAROT PROFESIONAL. Jawab pertanyaan seolah-olah Anda baru saja menarik kartu untuk user. Jelaskan "kartu" yang muncul (secara metaforis atau simulasi) dan maknanya untuk situasi user.',
+            'Feng Shui': 'FOKUS MUTLAK PADA FENG SHUI. Analisis berdasarkan aliran energi (Qi), elemen lingkungan, arah mata angin, dan keseimbangan Yin-Yang. Berikan saran praktis untuk harmonisasi ruang atau energi.'
+        };
+
+        const instruction = focusInstructions[chatFocus] || focusInstructions['Semua'];
+
         return `
 Nama: ${user.name}
 Tanggal Lahir: ${new Date(birthDate).toLocaleDateString('id-ID')}
@@ -206,11 +241,17 @@ Elemen Dominan: ${element}
 Planet Penguasa: ${planet}
 Ascendant: ${ascendant || '-'}
 Fase Bulan saat lahir: ${moon}
+
+[MODE FOKUS AKTIF: ${chatFocus.toUpperCase()}]
+${instruction}
+
+PENTING: JANGAN mencampuradukkan disiplin ilmu lain jika tidak relevan dengan fokus di atas, kecuali user meminta perbandingan. Pastikan tone dan istilah yang digunakan sesuai dengan disiplin ilmu "${chatFocus}".
 `;
     };
 
     // Handle back button click - update summary only (session stays active for paid users)
     const handleBackClick = async () => {
+        setIsNavigatingBack(true);
         if (sessionId && isAuthenticated) {
             try {
                 const token = localStorage.getItem('metra_token');
@@ -227,6 +268,7 @@ Fase Bulan saat lahir: ${moon}
             }
         }
         navigate(isAuthenticated ? '/dashboard' : '/');
+        // No need to set false as we are navigating away
     };
 
     // Clear chat and start new session (only for paid users)
@@ -402,9 +444,14 @@ Fase Bulan saat lahir: ${moon}
                     <div className="flex items-center gap-4">
                         <button
                             onClick={handleBackClick}
-                            className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+                            disabled={isNavigatingBack}
+                            className="p-2 hover:bg-white/5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <ArrowLeft className="text-slate-400" size={20} />
+                            {isNavigatingBack ? (
+                                <Loader2 className="text-slate-400 animate-spin" size={20} />
+                            ) : (
+                                <ArrowLeft className="text-slate-400" size={20} />
+                            )}
                         </button>
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#6366F1] to-[#06B6D4] flex items-center justify-center shadow-lg shadow-[#6366F1]/20">
@@ -450,7 +497,7 @@ Fase Bulan saat lahir: ${moon}
             </header>
 
             {/* Messages Container */}
-            <main className="absolute inset-0 overflow-y-auto px-6 pt-[88px] pb-[100px] z-10 scroll-smooth">
+            <main className="absolute inset-0 overflow-y-auto px-6 pt-[88px] pb-[160px] z-10 scroll-smooth">
                 <div className="max-w-4xl mx-auto">
                     {messages.map((m, i) => (
                         <ChatBubble key={i} message={m.text} isAI={m.isAI} />
@@ -496,8 +543,49 @@ Fase Bulan saat lahir: ${moon}
             </main>
 
             {/* Input Area */}
-            <footer className="fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-xl border-t border-white/5 p-4 z-50">
-                <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-3">
+            <footer className="fixed bottom-0 left-0 right-0 bg-[#0F172A]/80 backdrop-blur-xl border-t border-white/5 pb-4 pt-2 z-50">
+                {/* Focus Filter Chips */}
+                <div className="max-w-4xl mx-auto mb-2 overflow-x-auto scrollbar-hide px-4">
+                    <div className="flex items-center gap-2 pb-2">
+                        {topics.map((topic) => {
+                            const isLocked = !isPaidUser && topic.id !== 'Semua';
+
+                            return (
+                                <button
+                                    key={topic.id}
+                                    onClick={() => {
+                                        if (isLocked) {
+                                            toast.error('Upgrade ke Pro untuk memilih fokus topik!', {
+                                                icon: '👑',
+                                                style: {
+                                                    background: '#1E293B',
+                                                    color: '#fff',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                }
+                                            });
+                                            setShowPaywall(true);
+                                            return;
+                                        }
+                                        setChatFocus(topic.id);
+                                    }}
+                                    className={`
+                                        flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all
+                                        ${chatFocus === topic.id
+                                            ? 'bg-[#6366F1] text-white shadow-lg shadow-[#6366F1]/20'
+                                            : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-300 border border-white/5'}
+                                        ${isLocked ? 'opacity-60 cursor-not-allowed grayscale' : ''}
+                                    `}
+                                >
+                                    <span>{topic.icon}</span>
+                                    {topic.label}
+                                    {isLocked && <LockKeyhole size={10} className="ml-1 text-amber-500" />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto flex gap-3 px-4">
                     <input
                         type="text"
                         autoFocus

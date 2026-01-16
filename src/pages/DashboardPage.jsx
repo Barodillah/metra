@@ -16,7 +16,8 @@ import {
     Orbit,
     Globe,
     Sunrise,
-    Scroll
+    Scroll,
+    X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
@@ -147,6 +148,7 @@ const DashboardPage = () => {
     // Payment Modal State
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [upgradeTargetPlan, setUpgradeTargetPlan] = useState('pro');
+    const [showBaZiModal, setShowBaZiModal] = useState(false);
 
     const handleUpgradeClick = (targetPlan) => {
         setUpgradeTargetPlan(targetPlan);
@@ -493,6 +495,121 @@ const DashboardPage = () => {
                     </div>
                 )}
 
+                {/* BaZi Section - Only for Paid Plans */}
+                {user?.plan_type !== 'free' && birthDate && insights?.bazi && (
+                    <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-12 animate-fade-in">
+                        {/* Structure Card */}
+                        <div className="col-span-1 md:col-span-8 bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 p-6 rounded-3xl hover:border-white/20 transition-all relative overflow-hidden group">
+                            <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full blur-[60px] opacity-10 bg-red-500 group-hover:opacity-20 transition-opacity"></div>
+
+                            <div className="flex items-center gap-4 mb-6 relative z-10">
+                                <div className="p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500">
+                                    <Scroll size={22} />
+                                </div>
+                                <div>
+                                    <h3 className="text-white font-bold text-lg">Struktur BaZi (Empat Pilar)</h3>
+                                    <p className="text-slate-400 text-xs">Peta nasib berdasarkan elemen waktu</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 relative z-10">
+                                {[
+                                    { label: 'Tahun', ...insights.bazi.pillars.year },
+                                    { label: 'Bulan', ...insights.bazi.pillars.month },
+                                    { label: 'Hari', ...insights.bazi.pillars.day },
+                                    { label: 'Jam', ...insights.bazi.pillars.hour }
+                                ].map((item, idx) => (
+                                    <div key={idx} className="bg-slate-800/50 rounded-xl p-4 border border-white/5 text-center hover:bg-slate-800 transition-colors">
+                                        <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1">{item.label}</p>
+                                        <p className="text-white font-bold text-sm mb-1">{item.display}</p>
+                                        <p className="text-amber-500 text-lg font-serif mb-1">{item.hanzi}</p>
+                                        <p className="text-xs text-slate-400">{item.element}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+                                <div>
+                                    <h4 className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-3">Dominasi Elemen</h4>
+                                    <div className="space-y-2">
+                                        {insights.bazi.elements.breakdown.slice(0, 3).map((el, idx) => (
+                                            <div key={idx}>
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-slate-400">{el.element}</span>
+                                                    <span className="text-white font-bold">{el.level} ({el.count})</span>
+                                                </div>
+                                                <div className="w-full bg-slate-700/50 rounded-full h-1.5 mt-1">
+                                                    <div className={`h-1.5 rounded-full ${el.element === 'Api' ? 'bg-red-500' :
+                                                        el.element === 'Kayu' ? 'bg-green-500' :
+                                                            el.element === 'Tanah' ? 'bg-amber-600' :
+                                                                el.element === 'Logam' ? 'bg-slate-400' :
+                                                                    'bg-blue-400'}`} style={{ width: `${Math.max(10, el.percentage)}%` }}></div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 mt-2 italic">{insights.bazi.elements.summary}</p>
+                                </div>
+                                <div>
+                                    <h4 className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-3">Nasib Utama (Shen Sha)</h4>
+                                    <div className="space-y-3">
+                                        {insights.bazi.shenSha.slice(0, 2).map((star, idx) => (
+                                            <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl border ${star.type === 'positive' ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-slate-500/10 border-slate-500/20'}`}>
+                                                <div className={`mt-0.5 ${star.type === 'positive' ? 'text-indigo-400' : 'text-slate-400'}`}>
+                                                    <Star size={14} />
+                                                </div>
+                                                <div>
+                                                    <p className={`${star.type === 'positive' ? 'text-indigo-300' : 'text-slate-300'} font-bold text-xs mb-0.5`}>{star.name} ({star.meaning})</p>
+                                                    <p className="text-slate-400 text-[10px] leading-relaxed">{star.description}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* AI Insight Card */}
+                        <div className="col-span-1 md:col-span-4 bg-gradient-to-br from-[#1E293B]/60 to-[#0F172A]/60 backdrop-blur-xl border border-white/10 p-6 rounded-3xl hover:border-white/20 transition-all relative overflow-hidden">
+                            <div className="absolute -left-10 -bottom-10 w-40 h-40 rounded-full blur-[60px] opacity-10 bg-indigo-500 text-indigo-500"></div>
+
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                                    <Sparkles size={18} />
+                                </div>
+                                <h3 className="text-white font-bold text-sm">Insight BaZi AI</h3>
+                            </div>
+
+                            <div className="prose prose-invert prose-xs max-w-none">
+                                <p className="text-slate-300 leading-relaxed whitespace-pre-line">
+                                    {insights.bazi.insight.length > 350
+                                        ? `${insights.bazi.insight.substring(0, 350)}...`
+                                        : insights.bazi.insight}
+                                </p>
+                                {insights.bazi.insight.length > 350 && (
+                                    <button
+                                        onClick={() => setShowBaZiModal(true)}
+                                        className="text-indigo-400 text-xs font-bold hover:text-indigo-300 mt-2 flex items-center gap-1 transition-colors"
+                                    >
+                                        Lihat Selengkapnya <ChevronRight size={12} />
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="mt-6 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
+                                <p className="text-[10px] text-slate-400 italic mb-2">Punya pertanyaan spesifik tentang BaZi Anda?</p>
+                                <button
+                                    onClick={() => navigate('/chat', { state: { focus: 'BaZi' } })}
+                                    className="w-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 hover:text-indigo-200 text-xs font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2"
+                                >
+                                    <MessageSquare size={14} />
+                                    Tanya AI Advisor
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Today's Insight */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
                     <div className="lg:col-span-2">
@@ -721,6 +838,78 @@ const DashboardPage = () => {
                         Keluar dari Akun
                     </button>
                 </div>
+                {/* BaZi Insight Modal */}
+                {showBaZiModal && insights?.bazi && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowBaZiModal(false)}></div>
+                        <div className="relative bg-[#0F172A] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[80vh] overflow-y-auto animate-fade-in shadow-2xl">
+                            <div className="sticky top-0 bg-[#0F172A]/90 backdrop-blur-md p-6 border-b border-white/5 flex items-center justify-between z-10">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                                        <Sparkles size={20} />
+                                    </div>
+                                    <h3 className="text-white font-bold text-lg">Analisis Lengkap BaZi</h3>
+                                </div>
+                                <button
+                                    onClick={() => setShowBaZiModal(false)}
+                                    className="p-2 rounded-full hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="p-6">
+                                <div className="prose prose-invert max-w-none">
+                                    <p className="text-slate-300 leading-relaxed whitespace-pre-line text-base">
+                                        {insights.bazi.insight}
+                                    </p>
+                                </div>
+
+                                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="bg-slate-800/50 rounded-2xl p-5 border border-white/5">
+                                        <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                                            <Scroll size={16} className="text-amber-500" />
+                                            Struktur Pilar
+                                        </h4>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                                                <span className="text-slate-400">Tahun</span>
+                                                <span className="text-white font-mono">{insights.bazi.pillars.year.hanzi} ({insights.bazi.pillars.year.display})</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                                                <span className="text-slate-400">Bulan</span>
+                                                <span className="text-white font-mono">{insights.bazi.pillars.month.hanzi} ({insights.bazi.pillars.month.display})</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                                                <span className="text-slate-400">Hari</span>
+                                                <span className="text-white font-mono">{insights.bazi.pillars.day.hanzi} ({insights.bazi.pillars.day.display})</span>
+                                            </div>
+                                            <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                                                <span className="text-slate-400">Jam</span>
+                                                <span className="text-white font-mono">{insights.bazi.pillars.hour.hanzi} ({insights.bazi.pillars.hour.display})</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-800/50 rounded-2xl p-5 border border-white/5">
+                                        <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                                            <Star size={16} className="text-indigo-500" />
+                                            Shen Sha Aktif
+                                        </h4>
+                                        <div className="space-y-3">
+                                            {insights.bazi.shenSha.map((star, idx) => (
+                                                <div key={idx} className="bg-black/20 p-3 rounded-lg">
+                                                    <p className="text-indigo-300 font-bold text-sm">{star.name}</p>
+                                                    <p className="text-slate-400 text-xs mt-1">{star.description}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );

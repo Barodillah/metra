@@ -209,6 +209,274 @@ const getGoldenHour = (weton, zodiac, currentHour) => {
     };
 };
 
+// ==================== BAZI FUNCTIONS ====================
+
+// Heavenly Stems (天干) - Tian Gan
+const HEAVENLY_STEMS = [
+    { name: '甲', pinyin: 'Jiǎ', element: 'Kayu', polarity: '+', indo: 'Kayu Yang' },
+    { name: '乙', pinyin: 'Yǐ', element: 'Kayu', polarity: '-', indo: 'Kayu Yin' },
+    { name: '丙', pinyin: 'Bǐng', element: 'Api', polarity: '+', indo: 'Api Yang' },
+    { name: '丁', pinyin: 'Dīng', element: 'Api', polarity: '-', indo: 'Api Yin' },
+    { name: '戊', pinyin: 'Wù', element: 'Tanah', polarity: '+', indo: 'Tanah Yang' },
+    { name: '己', pinyin: 'Jǐ', element: 'Tanah', polarity: '-', indo: 'Tanah Yin' },
+    { name: '庚', pinyin: 'Gēng', element: 'Logam', polarity: '+', indo: 'Logam Yang' },
+    { name: '辛', pinyin: 'Xīn', element: 'Logam', polarity: '-', indo: 'Logam Yin' },
+    { name: '壬', pinyin: 'Rén', element: 'Air', polarity: '+', indo: 'Air Yang' },
+    { name: '癸', pinyin: 'Guǐ', element: 'Air', polarity: '-', indo: 'Air Yin' }
+];
+
+// Earthly Branches (地支) - Di Zhi
+const EARTHLY_BRANCHES = [
+    { name: '子', pinyin: 'Zǐ', animal: 'Tikus', element: 'Air', hours: '23-01' },
+    { name: '丑', pinyin: 'Chǒu', animal: 'Kerbau', element: 'Tanah', hours: '01-03' },
+    { name: '寅', pinyin: 'Yín', animal: 'Macan', element: 'Kayu', hours: '03-05' },
+    { name: '卯', pinyin: 'Mǎo', animal: 'Kelinci', element: 'Kayu', hours: '05-07' },
+    { name: '辰', pinyin: 'Chén', animal: 'Naga', element: 'Tanah', hours: '07-09' },
+    { name: '巳', pinyin: 'Sì', animal: 'Ular', element: 'Api', hours: '09-11' },
+    { name: '午', pinyin: 'Wǔ', animal: 'Kuda', element: 'Api', hours: '11-13' },
+    { name: '未', pinyin: 'Wèi', animal: 'Kambing', element: 'Tanah', hours: '13-15' },
+    { name: '申', pinyin: 'Shēn', animal: 'Monyet', element: 'Logam', hours: '15-17' },
+    { name: '酉', pinyin: 'Yǒu', animal: 'Ayam', element: 'Logam', hours: '17-19' },
+    { name: '戌', pinyin: 'Xū', animal: 'Anjing', element: 'Tanah', hours: '19-21' },
+    { name: '亥', pinyin: 'Hài', animal: 'Babi', element: 'Air', hours: '21-23' }
+];
+
+// Calculate BaZi Four Pillars
+const getBaZiPillars = (dateString, timeString) => {
+    if (!dateString) return null;
+
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+
+    // Parse hour (default to 12 if not provided)
+    let hour = 12;
+    if (timeString) {
+        const parts = timeString.split(':');
+        hour = parseInt(parts[0]) || 12;
+    }
+
+    // Year Pillar
+    const yearStemIdx = (year - 4) % 10;
+    const yearBranchIdx = (year - 4) % 12;
+    const yearStem = HEAVENLY_STEMS[yearStemIdx];
+    const yearBranch = EARTHLY_BRANCHES[yearBranchIdx];
+
+    // Month Pillar (simplified calculation - based on solar terms approximation)
+    // Adjusted month based on solar calendar approximation
+    let adjustedMonth = month;
+    if (day < 6) adjustedMonth = month === 1 ? 12 : month - 1;
+
+    const monthStemIdx = ((year - 4) % 5 * 2 + adjustedMonth - 1) % 10;
+    const monthBranchIdx = (adjustedMonth + 1) % 12;
+    const monthStem = HEAVENLY_STEMS[monthStemIdx];
+    const monthBranch = EARTHLY_BRANCHES[monthBranchIdx];
+
+    // Day Pillar (simplified Ganzhi calculation)
+    const baseDate = new Date(1900, 0, 31); // Known day: 甲辰 (Jiǎ Chén)
+    const diffDays = Math.floor((date - baseDate) / (1000 * 60 * 60 * 24));
+    const dayStemIdx = (diffDays % 10 + 10) % 10;
+    const dayBranchIdx = (diffDays % 12 + 12) % 12;
+    const dayStem = HEAVENLY_STEMS[dayStemIdx];
+    const dayBranch = EARTHLY_BRANCHES[dayBranchIdx];
+
+    // Hour Pillar
+    let hourBranchIdx;
+    if (hour >= 23 || hour < 1) hourBranchIdx = 0;
+    else hourBranchIdx = Math.floor((hour + 1) / 2);
+
+    const hourStemIdx = (dayStemIdx % 5 * 2 + hourBranchIdx) % 10;
+    const hourStem = HEAVENLY_STEMS[hourStemIdx];
+    const hourBranch = EARTHLY_BRANCHES[hourBranchIdx];
+
+    return {
+        year: {
+            stem: yearStem,
+            branch: yearBranch,
+            hanzi: `${yearStem.name}${yearBranch.name}`,
+            display: `${yearBranch.animal} ${yearStem.element}`,
+            element: yearStem.element
+        },
+        month: {
+            stem: monthStem,
+            branch: monthBranch,
+            hanzi: `${monthStem.name}${monthBranch.name}`,
+            display: `${monthBranch.animal} ${monthStem.element}`,
+            element: monthStem.element
+        },
+        day: {
+            stem: dayStem,
+            branch: dayBranch,
+            hanzi: `${dayStem.name}${dayBranch.name}`,
+            display: `${dayBranch.animal} ${dayStem.element}`,
+            element: dayStem.element
+        },
+        hour: {
+            stem: hourStem,
+            branch: hourBranch,
+            hanzi: `${hourStem.name}${hourBranch.name}`,
+            display: `${hourBranch.animal} ${hourStem.element}`,
+            element: hourStem.element
+        }
+    };
+};
+
+// Calculate Element Dominance from BaZi Pillars
+const getBaZiElements = (pillars) => {
+    if (!pillars) return null;
+
+    const counts = { Kayu: 0, Api: 0, Tanah: 0, Logam: 0, Air: 0 };
+
+    // Count elements from stems and branches
+    const allPillars = [pillars.year, pillars.month, pillars.day, pillars.hour];
+    allPillars.forEach(pillar => {
+        counts[pillar.stem.element]++;
+        counts[pillar.branch.element]++;
+    });
+
+    // Determine strength levels
+    const getStrength = (count) => {
+        if (count >= 3) return { level: 'Kuat', score: count };
+        if (count >= 2) return { level: 'Stabil', score: count };
+        return { level: 'Lemah', score: count };
+    };
+
+    const elements = Object.entries(counts).map(([element, count]) => ({
+        element,
+        count,
+        ...getStrength(count),
+        percentage: Math.round((count / 8) * 100)
+    }));
+
+    // Sort by count descending
+    elements.sort((a, b) => b.count - a.count);
+
+    // Determine dominant and weak elements
+    const dominant = elements.filter(e => e.count >= 2);
+    const weak = elements.filter(e => e.count <= 1);
+
+    return {
+        breakdown: elements,
+        dominant: dominant.map(e => e.element).join(' & '),
+        weak: weak.map(e => e.element).join(' & '),
+        summary: `${dominant.map(e => `${e.element} (${e.count})`).join(', ')} kuat; ${weak.map(e => `${e.element} (${e.count})`).join(', ')} lemah`
+    };
+};
+
+// Calculate Shen Sha (Spiritual Stars)
+const getBaZiShenSha = (pillars) => {
+    if (!pillars) return [];
+
+    const shenSha = [];
+    const dayBranch = pillars.day.branch.animal;
+    const yearBranch = pillars.year.branch.animal;
+
+    // Tian Yi Gui Ren (天乙贵人) - Noble Person Star
+    const tianYiMap = {
+        'Tikus': ['Kerbau', 'Kambing'], 'Kerbau': ['Tikus', 'Monyet'],
+        'Macan': ['Babi', 'Ayam'], 'Kelinci': ['Babi', 'Ayam'],
+        'Naga': ['Kuda', 'Anjing'], 'Ular': ['Kuda', 'Tikus'],
+        'Kuda': ['Kambing', 'Kerbau'], 'Kambing': ['Kuda', 'Monyet'],
+        'Monyet': ['Kerbau', 'Kambing'], 'Ayam': ['Macan', 'Kuda'],
+        'Anjing': ['Kelinci', 'Ular'], 'Babi': ['Macan', 'Kelinci']
+    };
+
+    if (tianYiMap[dayBranch] && (tianYiMap[dayBranch].includes(yearBranch) || tianYiMap[dayBranch].includes(pillars.hour.branch.animal))) {
+        shenSha.push({
+            name: 'Tian Yi Gui Ren',
+            chinese: '天乙贵人',
+            meaning: 'Bintang Penyembuh',
+            description: 'Menandakan perlindungan dari kesulitan dan mendapat bantuan di saat kritis.',
+            type: 'positive'
+        });
+    }
+
+    // Tai Sui (太岁) - Grand Duke
+    const currentYear = new Date().getFullYear();
+    const currentYearBranchIdx = (currentYear - 4) % 12;
+    const currentYearAnimal = EARTHLY_BRANCHES[currentYearBranchIdx].animal;
+
+    if (yearBranch === currentYearAnimal) {
+        shenSha.push({
+            name: 'Tai Sui',
+            chinese: '太岁',
+            meaning: 'Grand Duke',
+            description: 'Tahun ini membawa energi kuat yang perlu diarahkan dengan bijak.',
+            type: 'neutral'
+        });
+    }
+
+    // Wen Chang (文昌) - Academic Star
+    const wenChangMap = {
+        'Macan': 'Ular', 'Kelinci': 'Kuda', 'Monyet': 'Babi', 'Ayam': 'Tikus'
+    };
+    if (wenChangMap[dayBranch] && wenChangMap[dayBranch] === pillars.hour.branch.animal) {
+        shenSha.push({
+            name: 'Wen Chang',
+            chinese: '文昌',
+            meaning: 'Bintang Akademik',
+            description: 'Membawa keberuntungan dalam pendidikan, pembelajaran, dan karir intelektual.',
+            type: 'positive'
+        });
+    }
+
+    // Yi Ma (驿马) - Traveling Horse Star
+    const yiMaMap = {
+        'Tikus': 'Macan', 'Kerbau': 'Babi', 'Macan': 'Monyet', 'Kelinci': 'Ular',
+        'Naga': 'Macan', 'Ular': 'Babi', 'Kuda': 'Monyet', 'Kambing': 'Ular',
+        'Monyet': 'Macan', 'Ayam': 'Babi', 'Anjing': 'Monyet', 'Babi': 'Ular'
+    };
+    if (yiMaMap[yearBranch] && yiMaMap[yearBranch] === pillars.day.branch.animal) {
+        shenSha.push({
+            name: 'Yi Ma',
+            chinese: '驿马',
+            meaning: 'Bintang Perjalanan',
+            description: 'Menandakan pergerakan, perjalanan, dan perubahan dalam hidup.',
+            type: 'positive'
+        });
+    }
+
+    // Default if no special stars found
+    if (shenSha.length === 0) {
+        shenSha.push({
+            name: 'Ping An',
+            chinese: '平安',
+            meaning: 'Bintang Kedamaian',
+            description: 'Menandakan periode tenang dan stabil tanpa gejolak besar.',
+            type: 'neutral'
+        });
+    }
+
+    return shenSha;
+};
+
+// Generate BaZi AI Insight
+const generateBaZiInsight = async (pillars, elements, shenSha, userName) => {
+    const prompt = `Kamu adalah master BaZi (Four Pillars of Destiny). Berikan insight PERSONAL dalam 1 paragraf sedang berdasarkan data berikut:
+
+STRUKTUR BAZI:
+- Tahun: ${pillars.year.display} (${pillars.year.hanzi})
+- Bulan: ${pillars.month.display} (${pillars.month.hanzi})
+- Hari: ${pillars.day.display} (${pillars.day.hanzi})
+- Jam: ${pillars.hour.display} (${pillars.hour.hanzi})
+
+DOMINASI ELEMEN:
+${elements.summary}
+
+SHEN SHA (BINTANG):
+${shenSha.map(s => `- ${s.name} (${s.meaning})`).join('\n')}
+
+Fokus pada:
+1. Bagaimana struktur elemen mempengaruhi kepribadian dan potensi
+2. Saran praktis berdasarkan Shen Sha yang aktif
+
+Gunakan gaya hangat dan mistis. Langsung mulai tanpa salam:`;
+
+    const insight = await callAI(prompt, 300);
+    return insight || 'Struktur BaZi Anda menunjukkan keseimbangan unik yang mempengaruhi jalur hidup Anda. Perhatikan elemen dominan untuk memaksimalkan potensi.';
+};
+
 // Call AI for generating insights
 const callAI = async (prompt, maxTokens = 500) => {
     try {
@@ -387,6 +655,50 @@ router.get('/insights', authenticateToken, async (req, res) => {
                     element: todayShioData.element
                 }
             );
+
+            // BaZi calculation for non-free users
+            if (user.birth_datetime) {
+                const birthDate = new Date(user.birth_datetime);
+                const birthDateStr = birthDate.toISOString().split('T')[0];
+                const birthTimeStr = birthDate.toTimeString().slice(0, 5);
+
+                const baziPillars = getBaZiPillars(birthDateStr, birthTimeStr);
+                const baziElements = getBaZiElements(baziPillars);
+                const baziShenSha = getBaZiShenSha(baziPillars);
+                const baziInsight = await generateBaZiInsight(baziPillars, baziElements, baziShenSha, user.name);
+
+                response.bazi = {
+                    pillars: {
+                        year: {
+                            label: 'Tahun',
+                            display: baziPillars.year.display,
+                            hanzi: baziPillars.year.hanzi,
+                            element: `${baziPillars.year.stem.element} (${baziPillars.year.stem.polarity})`
+                        },
+                        month: {
+                            label: 'Bulan',
+                            display: baziPillars.month.display,
+                            hanzi: baziPillars.month.hanzi,
+                            element: `${baziPillars.month.stem.element} (${baziPillars.month.stem.polarity})`
+                        },
+                        day: {
+                            label: 'Hari',
+                            display: baziPillars.day.display,
+                            hanzi: baziPillars.day.hanzi,
+                            element: `${baziPillars.day.stem.element} (${baziPillars.day.stem.polarity})`
+                        },
+                        hour: {
+                            label: 'Jam',
+                            display: baziPillars.hour.display,
+                            hanzi: baziPillars.hour.hanzi,
+                            element: `${baziPillars.hour.stem.element} (${baziPillars.hour.stem.polarity})`
+                        }
+                    },
+                    elements: baziElements,
+                    shenSha: baziShenSha,
+                    insight: baziInsight
+                };
+            }
         }
 
         // VISIONARY tier additions
