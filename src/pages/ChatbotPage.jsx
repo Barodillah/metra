@@ -247,13 +247,13 @@ Fase Bulan saat lahir: ${moon}
 `;
     };
 
-    // Handle back button click - end session before navigating away
+    // Handle back button click - update summary only (session stays active for paid users)
     const handleBackClick = async () => {
         if (sessionId && isAuthenticated) {
             try {
                 const token = localStorage.getItem('metra_token');
-                // End session with summary generation
-                await fetch(`${API_URL}/chat/sessions/${sessionId}/end`, {
+                // Update summary only - don't end session so paid users can continue later
+                await fetch(`${API_URL}/chat/sessions/${sessionId}/summary`, {
                     method: 'PUT',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -261,7 +261,7 @@ Fase Bulan saat lahir: ${moon}
                     }
                 });
             } catch (error) {
-                console.error('Failed to end session:', error);
+                console.error('Failed to update summary:', error);
             }
         }
         navigate(isAuthenticated ? '/dashboard' : '/');

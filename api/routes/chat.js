@@ -409,6 +409,86 @@ ${userContext}` : ''}
     }
 });
 
+// ==================== UPDATE SUMMARY ONLY (without ending session) ====================
+router.put('/sessions/:sessionId/summary', authenticateToken, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+
+        // Verify session belongs to user
+        const [sessions] = await pool.query(
+            'SELECT * FROM chat_sessions WHERE id = ? AND user_id = ?',
+            [sessionId, req.user.id]
+        );
+
+        if (sessions.length === 0) {
+            return res.status(404).json({ error: 'Sesi tidak ditemukan' });
+        }
+
+        // Check if there are any messages in this session
+        const [messages] = await pool.query(
+            'SELECT COUNT(*) as count FROM chat_messages WHERE session_id = ?',
+            [sessionId]
+        );
+
+        const messageCount = messages[0].count;
+
+        if (messageCount === 0) {
+            return res.json({ message: 'Tidak ada pesan untuk diringkas', summary: null });
+        }
+
+        // Get messages for summary
+        const [chatMessages] = await pool.query(
+            'SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC LIMIT 10',
+            [sessionId]
+        );
+
+        // Generate summary using AI
+        let summary = null;
+        try {
+            const summaryMessages = chatMessages.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content.substring(0, 200)}`).join('\n');
+
+            const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    model: OPENROUTER_MODEL,
+                    messages: [
+                        {
+                            role: "system",
+                            content: "Buat ringkasan 1 kalimat singkat dalam Bahasa Indonesia untuk percakapan berikut. Fokus pada topik utama yang dibahas. Maksimal 100 karakter."
+                        },
+                        { role: "user", content: summaryMessages }
+                    ]
+                })
+            });
+
+            if (aiResponse.ok) {
+                const aiData = await aiResponse.json();
+                summary = aiData.choices[0].message.content.substring(0, 255);
+            }
+        } catch (err) {
+            console.error('Failed to generate summary:', err);
+            // Use first user message as fallback summary
+            const firstUserMsg = chatMessages.find(m => m.role === 'user');
+            summary = firstUserMsg ? firstUserMsg.content.substring(0, 100) + '...' : null;
+        }
+
+        // Update only summary, NOT ended_at or duration_seconds
+        await pool.query(
+            'UPDATE chat_sessions SET summary = ? WHERE id = ?',
+            [summary, sessionId]
+        );
+
+        res.json({ message: 'Summary berhasil diupdate', summary });
+    } catch (error) {
+        console.error('Update summary error:', error);
+        res.status(500).json({ error: 'Gagal mengupdate summary' });
+    }
+});
+
 // ==================== END SESSION ====================
 router.put('/sessions/:sessionId/end', authenticateToken, async (req, res) => {
     try {
