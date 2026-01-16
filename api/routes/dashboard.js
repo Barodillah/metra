@@ -604,10 +604,11 @@ router.get('/insights', authenticateToken, async (req, res) => {
         let userBirthData = null;
         if (user.birth_datetime) {
             const birthDate = new Date(user.birth_datetime);
-            const birthDateStr = birthDate.toISOString().split('T')[0];
+            // Use local date components to avoid UTC offset issues
+            const birthYear = birthDate.getFullYear();
             const birthMonth = birthDate.getMonth() + 1;
             const birthDay = birthDate.getDate();
-            const birthYear = birthDate.getFullYear();
+            const birthDateStr = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
 
             userBirthData = {
                 weton: getWeton(birthDateStr),
@@ -663,7 +664,11 @@ router.get('/insights', authenticateToken, async (req, res) => {
             // BaZi calculation for non-free users
             if (user.birth_datetime) {
                 const birthDate = new Date(user.birth_datetime);
-                const birthDateStr = birthDate.toISOString().split('T')[0];
+                // Use local date components to avoid UTC offset issues
+                const birthYear = birthDate.getFullYear();
+                const birthMonth = birthDate.getMonth() + 1;
+                const birthDay = birthDate.getDate();
+                const birthDateStr = `${birthYear}-${String(birthMonth).padStart(2, '0')}-${String(birthDay).padStart(2, '0')}`;
                 const birthTimeStr = birthDate.toTimeString().slice(0, 5);
 
                 const baziPillars = getBaZiPillars(birthDateStr, birthTimeStr);
