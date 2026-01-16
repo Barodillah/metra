@@ -34,7 +34,11 @@ const getCurrentTimeInfo = () => {
 // Get Weton (Javanese Calendar)
 const getWeton = (dateString) => {
     if (!dateString) return null;
-    const date = new Date(dateString);
+
+    // Parse date string as local date to avoid UTC offset issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
+
     const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
     const pasarans = ["Legi", "Paing", "Pon", "Wage", "Kliwon"];
     const baseDate = new Date(1900, 0, 1);
