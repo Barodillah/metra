@@ -159,14 +159,14 @@ router.get('/engagement', authenticateToken, isAdmin, async (req, res) => {
             ORDER BY date ASC
         `);
 
-        // Peak usage hours
+        // Peak usage hours (converted to WIB = UTC+7)
         const [peakHours] = await pool.query(`
             SELECT 
-                HOUR(created_at) as hour,
+                MOD(HOUR(created_at) + 7, 24) as hour,
                 COUNT(*) as message_count
             FROM chat_messages
             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY HOUR(created_at)
+            GROUP BY MOD(HOUR(created_at) + 7, 24)
             ORDER BY hour ASC
         `);
 
@@ -271,14 +271,14 @@ router.get('/ai-metrics', authenticateToken, isAdmin, async (req, res) => {
             ) as session_counts
         `);
 
-        // AI usage by hour (last 7 days)
+        // AI usage by hour (last 7 days, converted to WIB = UTC+7)
         const [aiByHour] = await pool.query(`
             SELECT 
-                HOUR(created_at) as hour,
+                MOD(HOUR(created_at) + 7, 24) as hour,
                 COUNT(*) as ai_responses
             FROM chat_messages
             WHERE role = 'assistant' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-            GROUP BY HOUR(created_at)
+            GROUP BY MOD(HOUR(created_at) + 7, 24)
             ORDER BY hour ASC
         `);
 
