@@ -139,11 +139,12 @@ const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
                             <p className="text-slate-400 text-xs">Daily Energy Score, AI Analysis & more</p>
                         </div>
                         <button
-                            onClick={onUpgrade}
+                            onClick={() => onUpgrade('pro')}
                             className="px-4 py-2 bg-gradient-to-r from-[#6366F1] to-[#06B6D4] rounded-xl text-white text-xs font-bold hover:brightness-110 transition-all"
                         >
                             Upgrade
                         </button>
+
                     </div>
                 </div>
             )}
@@ -223,11 +224,12 @@ const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
                             <p className="text-slate-400 text-xs">Golden Hour, Weekly Forecast & Multi-Profile</p>
                         </div>
                         <button
-                            onClick={onUpgrade}
+                            onClick={() => onUpgrade('visionary')}
                             className="px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl text-white text-xs font-bold hover:brightness-110 transition-all"
                         >
                             Upgrade
                         </button>
+
                     </div>
                 </div>
             )}

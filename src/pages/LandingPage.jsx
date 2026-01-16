@@ -275,25 +275,31 @@ const ChatBubble = ({ message, isAI }) => (
     </div>
 );
 
-const PricingCard = ({ title, price, features, highlighted }) => (
-    <div className={`p-8 rounded-[2.5rem] border transition-all duration-500 ${highlighted ? 'bg-[#1E293B] border-[#6366F1] shadow-2xl shadow-[#6366F1]/20 scale-105 z-10' : 'bg-[#1E293B]/40 border-white/5'} group`}>
-        <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
-        <div className="flex items-baseline gap-1 mb-6">
-            <span className="text-3xl font-black text-white tracking-tight">{price}</span>
-            <span className="text-slate-500 text-sm">/bulan</span>
+const PricingCard = ({ title, price, features, highlighted }) => {
+    const navigate = useNavigate();
+    return (
+        <div className={`p-8 rounded-[2.5rem] border transition-all duration-500 ${highlighted ? 'bg-[#1E293B] border-[#6366F1] shadow-2xl shadow-[#6366F1]/20 scale-105 z-10' : 'bg-[#1E293B]/40 border-white/5'} group`}>
+            <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
+            <div className="flex items-baseline gap-1 mb-6">
+                <span className="text-3xl font-black text-white tracking-tight">{price}</span>
+                <span className="text-slate-500 text-sm">/bulan</span>
+            </div>
+            <ul className="space-y-4 mb-8">
+                {features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-3 text-sm text-slate-400 font-medium">
+                        <CheckCircle2 size={16} className="text-[#06B6D4] shrink-0" /> {f}
+                    </li>
+                ))}
+            </ul>
+            <button
+                onClick={() => navigate('/register')}
+                className={`w-full py-4 rounded-2xl font-bold transition-all ${highlighted ? 'bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white shadow-lg shadow-[#6366F1]/30 hover:brightness-110' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'}`}
+            >
+                Pilih Paket
+            </button>
         </div>
-        <ul className="space-y-4 mb-8">
-            {features.map((f, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm text-slate-400 font-medium">
-                    <CheckCircle2 size={16} className="text-[#06B6D4] shrink-0" /> {f}
-                </li>
-            ))}
-        </ul>
-        <button className={`w-full py-4 rounded-2xl font-bold transition-all ${highlighted ? 'bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white shadow-lg shadow-[#6366F1]/30 hover:brightness-110' : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'}`}>
-            Pilih Paket
-        </button>
-    </div>
-);
+    );
+};
 
 const LandingPage = () => {
     const navigate = useNavigate();
@@ -317,7 +323,14 @@ const LandingPage = () => {
         const lifePath = getLifePathNumber(formData.dob);
         const shio = getShio(formData.dob);
 
-        setResults({ weton, zodiac, lifePath, shio });
+        const resultsData = { weton, zodiac, lifePath, shio };
+        setResults(resultsData);
+
+        // Save data to localStorage for Guest Chat
+        localStorage.setItem('guestData', JSON.stringify({
+            formData: formData,
+            results: resultsData
+        }));
 
         setTimeout(() => {
             resultRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -331,7 +344,7 @@ const LandingPage = () => {
 
     // Redirect to chatbot page when user starts typing
     const handleChatInputFocus = () => {
-        navigate('/chat');
+        navigate('/guest-chat');
     };
 
     const handleSendMessage = (e) => {
@@ -515,7 +528,7 @@ const LandingPage = () => {
                                     </div>
                                 </div>
                                 <div className="text-[10px] bg-white/5 border border-white/10 px-4 py-2 rounded-full text-slate-400 font-bold uppercase tracking-tighter">
-                                    {2 - chatCount} free daily session
+                                    {1 - chatCount} free daily session
                                 </div>
                             </div>
 

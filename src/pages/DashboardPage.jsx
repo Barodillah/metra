@@ -24,6 +24,8 @@ import DatePicker from '../components/DatePicker';
 import TimePicker from '../components/TimePicker';
 import AdSlot from '../components/AdSlot';
 import InsightSection from '../components/InsightSection';
+import PaymentModal from '../components/PaymentModal';
+
 
 import {
     getWeton,
@@ -54,9 +56,114 @@ const Card = ({ title, value, subValue, icon: Icon, glowColor }) => (
     </div>
 );
 
+const ChatHistoryList = () => {
+    const [sessions, setSessions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchSessions = async () => {
+            try {
+                const token = localStorage.getItem('metra_token');
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/chat/sessions`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Take only the last 3 sessions
+                    setSessions(data.sessions.slice(0, 3));
+                }
+            } catch (error) {
+                console.error("Failed to fetch chat history", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (user) {
+            fetchSessions();
+        }
+    }, [user]);
+
+    if (loading) {
+        return <div className="text-slate-500 text-sm py-4">Memuat riwayat...</div>;
+    }
+
+    if (sessions.length === 0) {
+        return (
+            <div className="bg-[#1E293B]/60 border border-white/5 rounded-2xl p-6 text-center">
+                <p className="text-slate-400 text-sm">Belum ada riwayat percakapan.</p>
+                <Link to="/chat" className="text-[#6366F1] text-sm font-bold mt-2 inline-block hover:underline">
+                    Mulai Chat Baru
+                </Link>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-3">
+            {sessions.map((session) => (
+                <button
+                    key={session.id}
+                    onClick={() => navigate(`/history/${session.id}`)}
+                    className="w-full bg-[#1E293B]/60 hover:bg-[#1E293B] border border-white/5 hover:border-[#6366F1]/30 p-4 rounded-2xl transition-all text-left group"
+                >
+                    <div className="flex justify-between items-start mb-1">
+                        <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">
+                            {new Date(session.created_at).toLocaleDateString('id-ID', {
+                                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                            })}
+                        </span>
+                        {session.ended_at && (
+                            <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded-full">
+                                Selesai
+                            </span>
+                        )}
+                    </div>
+                    <p className="text-slate-300 text-sm line-clamp-2 leading-relaxed group-hover:text-white transition-colors">
+                        {session.summary || session.first_message || "Percakapan Baru"}
+                    </p>
+                </button>
+            ))}
+
+            <Link
+                to="/history"
+                className="block text-center text-slate-500 text-xs font-bold hover:text-white transition-colors mt-2"
+            >
+                Lihat Semua Riwayat
+            </Link>
+        </div>
+    );
+};
+
 const DashboardPage = () => {
     const { user, logout, updateProfile, getBirthDateChangeInfo } = useAuth();
     const navigate = useNavigate();
+
+    // Payment Modal State
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [upgradeTargetPlan, setUpgradeTargetPlan] = useState('pro');
+
+    const handleUpgradeClick = (targetPlan) => {
+        setUpgradeTargetPlan(targetPlan);
+        setShowPaymentModal(true);
+    };
+
+    const handlePaymentSuccess = async () => {
+        try {
+            // Update user plan locally for immediate feedback (in real app, this would be handled by backend webhook/response)
+            await updateProfile({ plan_type: upgradeTargetPlan });
+            setShowPaymentModal(false);
+            // Optional: Show success toast/alert
+        } catch (error) {
+            console.error("Failed to upgrade locally", error);
+        }
+    };
+
 
     // Parse birth_datetime into date and time parts for display (using local timezone)
     const parseBirthDateTime = (dateTime) => {
@@ -197,6 +304,15 @@ const DashboardPage = () => {
     return (
         <div className="min-h-screen bg-[#0F172A] text-slate-300">
             <Navbar />
+
+            {/* Payment Modal */}
+            <PaymentModal
+                isOpen={showPaymentModal}
+                onClose={() => setShowPaymentModal(false)}
+                planType={upgradeTargetPlan}
+                onConfirm={handlePaymentSuccess}
+                userEmail={user?.email}
+            />
 
             {/* Background Effects */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -384,7 +500,7 @@ const DashboardPage = () => {
                             insights={insights}
                             loading={loadingInsights}
                             planType={user?.plan_type || 'free'}
-                            onUpgrade={() => navigate('/pricing')}
+                            onUpgrade={(plan) => handleUpgradeClick(plan || 'pro')}
                         />
                     </div>
 
@@ -467,46 +583,128 @@ const DashboardPage = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-3 mb-6">
+                                <div className="space-y-4 mb-6">
                                     {user?.plan_type === 'free' ? (
-                                        <>
-                                            <div className="flex items-center gap-3 text-sm text-slate-300">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
-                                                <span>2 chat AI gratis / hari</span>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-3">
+                                                <p className="text-white font-medium text-sm border-b border-white/10 pb-2">Paket Free Kamu:</p>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
+                                                    <span>2 Chat AI / hari</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
+                                                    <span>Insight Harian Basic</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
+                                                    <span>Maaf Ada Iklan</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-3 text-sm text-slate-500">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div>
-                                                <span>Fitur Pro terkunci</span>
+                                            <div className="space-y-3">
+                                                <p className="text-indigo-400 font-medium text-sm border-b border-indigo-500/20 pb-2">Benefit PRO:</p>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300 opacity-80">
+                                                    <Crown size={14} className="text-amber-400" />
+                                                    <span>Unlimited AI Chat</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300 opacity-80">
+                                                    <Crown size={14} className="text-amber-400" />
+                                                    <span>Analisis Weton & Zodiak Detail</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300 opacity-80">
+                                                    <Crown size={14} className="text-amber-400" />
+                                                    <span>Akses Penuh Fitur Spiritual</span>
+                                                </div>
                                             </div>
-                                        </>
+                                        </div>
+                                    ) : user?.plan_type === 'pro' ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-3">
+                                                <p className="text-[#06B6D4] font-medium text-sm border-b border-[#06B6D4]/20 pb-2">Paket Member PRO:</p>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
+                                                    <span>Unlimited AI Chat</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></div>
+                                                    <span>Akses Penuh Fitur Spiritual</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <p className="text-amber-400 font-medium text-sm border-b border-amber-500/20 pb-2">Go VISIONARY:</p>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300 opacity-80">
+                                                    <Star size={14} className="text-amber-400" />
+                                                    <span>Akses Model AI Terbaru (GPT-4o)</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300 opacity-80">
+                                                    <Star size={14} className="text-amber-400" />
+                                                    <span>Unlimited Ganti Tanggal Lahir</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300 opacity-80">
+                                                    <Star size={14} className="text-amber-400" />
+                                                    <span>Fitur Eksklusif Mendatang</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     ) : (
-                                        <>
-                                            <div className="flex items-center gap-3 text-sm text-slate-300">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                                <span>Unlimited AI Chat</span>
+                                        // Visionary View
+                                        <div className="grid grid-cols-1 gap-4">
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                                                    <span>Unlimited AI Chat & Features</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                                                    <span>Prioritas Akses Server & Support</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-slate-300">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
+                                                    <span>Unlimited Perubahan Data Kelahiran</span>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-3 text-sm text-slate-300">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                                <span>Akses Penuh Fitur Spiritual</span>
-                                            </div>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
 
                                 {user?.plan_type === 'free' && (
-                                    <button className="w-full bg-gradient-to-r from-[#6366F1] to-[#06B6D4] hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#6366F1]/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5">
+                                    <button
+                                        onClick={() => handleUpgradeClick('pro')}
+                                        className="w-full bg-gradient-to-r from-[#6366F1] to-[#06B6D4] hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#6366F1]/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5"
+                                    >
                                         <Zap size={16} className="fill-white/30" />
-                                        Upgrade ke Pro
+                                        Upgrade ke Pro - Rp 29.000/bln
                                     </button>
                                 )}
                                 {user?.plan_type === 'pro' && (
-                                    <button className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5">
+                                    <button
+                                        onClick={() => handleUpgradeClick('visionary')}
+                                        className="w-full bg-gradient-to-r from-amber-400 to-orange-500 hover:brightness-110 py-3.5 rounded-xl text-white font-bold text-xs uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group-hover:-translate-y-0.5"
+                                    >
                                         <Crown size={16} className="fill-white/30" />
-                                        Go Visionary
+                                        Upgrade ke Visionary - Rp 99.000/bln
                                     </button>
+                                )}
+                                {user?.plan_type === 'visionary' && (
+                                    <div className="w-full bg-white/5 py-3.5 rounded-xl text-slate-400 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 cursor-default">
+                                        <Crown size={16} className="text-amber-500" />
+                                        Member Visionary Aktif
+                                    </div>
                                 )}
                             </div>
                         </div>
+
+                        {/* Recent Chat History - Only for Paid Plans */}
+                        {user?.plan_type !== 'free' && (
+                            <div className="mt-6 animate-fade-in">
+                                <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
+                                    <MessageSquare size={20} className="text-[#6366F1]" />
+                                    Riwayat Percakapan
+                                </h3>
+
+                                <ChatHistoryList />
+                            </div>
+                        )}
                     </div>
                 </div>
 

@@ -231,14 +231,16 @@ router.post('/sessions', authenticateToken, async (req, res) => {
 // ==================== GET USER SESSIONS ====================
 router.get('/sessions', authenticateToken, async (req, res) => {
     try {
+        const limit = parseInt(req.query.limit) || 20;
+
         const [sessions] = await pool.query(
             `SELECT cs.*, 
                 (SELECT content FROM chat_messages WHERE session_id = cs.id AND role = 'user' ORDER BY created_at ASC LIMIT 1) as first_message
             FROM chat_sessions cs 
             WHERE cs.user_id = ? 
             ORDER BY cs.created_at DESC 
-            LIMIT 20`,
-            [req.user.id]
+            LIMIT ?`,
+            [req.user.id, limit]
         );
 
         res.json({ sessions });
@@ -268,7 +270,7 @@ router.get('/sessions/:sessionId/messages', authenticateToken, async (req, res) 
             [sessionId]
         );
 
-        res.json({ messages });
+        res.json({ session: sessions[0], messages });
     } catch (error) {
         console.error('Get messages error:', error);
         res.status(500).json({ error: 'Gagal mengambil pesan' });
