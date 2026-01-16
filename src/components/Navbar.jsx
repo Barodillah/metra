@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles, Menu, X } from 'lucide-react';
+import { Sparkles, Menu, X, Crown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
@@ -35,6 +35,15 @@ const Navbar = () => {
 
                     {isAuthenticated ? (
                         <div className="flex items-center gap-4">
+                            {user?.role === 'admin' && (
+                                <Link
+                                    to="/admin"
+                                    className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-widest text-[11px] font-bold"
+                                >
+                                    <Crown size={14} />
+                                    Admin
+                                </Link>
+                            )}
                             <Link
                                 to="/dashboard"
                                 className="bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-2.5 rounded-full transition-all text-white font-bold text-xs uppercase tracking-widest"
@@ -87,6 +96,16 @@ const Navbar = () => {
 
                     {isAuthenticated ? (
                         <>
+                            {user?.role === 'admin' && (
+                                <Link
+                                    to="/admin"
+                                    className="flex items-center justify-center gap-2 text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-widest text-[11px] font-bold py-2"
+                                    onClick={() => setMenuOpen(false)}
+                                >
+                                    <Crown size={14} />
+                                    Admin Dashboard
+                                </Link>
+                            )}
                             <Link
                                 to="/dashboard"
                                 className="block bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-3 rounded-full transition-all text-white font-bold text-xs uppercase tracking-widest text-center"

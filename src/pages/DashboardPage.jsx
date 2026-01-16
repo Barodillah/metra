@@ -26,6 +26,7 @@ import TimePicker from '../components/TimePicker';
 import AdSlot from '../components/AdSlot';
 import InsightSection from '../components/InsightSection';
 import PaymentModal from '../components/PaymentModal';
+import { toWIB } from '../utils/dateTime';
 
 
 import {
@@ -115,7 +116,7 @@ const ChatHistoryList = () => {
                 >
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                            {new Date(session.created_at).toLocaleDateString('id-ID', {
+                            {toWIB(session.created_at).toLocaleDateString('id-ID', {
                                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                             })}
                         </span>

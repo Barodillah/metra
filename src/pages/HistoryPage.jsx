@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare, Loader2, Calendar, Clock, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { toWIB } from '../utils/dateTime';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
@@ -97,13 +98,13 @@ const HistoryPage = () => {
                                         </div>
                                         <div>
                                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                                                {new Date(session.created_at).toLocaleDateString('id-ID', {
+                                                {toWIB(session.created_at).toLocaleDateString('id-ID', {
                                                     day: 'numeric', month: 'long', year: 'numeric'
                                                 })}
                                             </p>
                                             <p className="text-[10px] text-slate-600 flex items-center gap-1">
                                                 <Clock size={10} />
-                                                {new Date(session.created_at).toLocaleTimeString('id-ID', {
+                                                {toWIB(session.created_at).toLocaleTimeString('id-ID', {
                                                     hour: '2-digit', minute: '2-digit'
                                                 })}
                                             </p>

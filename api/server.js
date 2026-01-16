@@ -13,6 +13,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import dashboardRoutes from './routes/dashboard.js';
+import adminRoutes from './routes/admin.js';
 import './db.js'; // Initialize database connection
 import './email.js'; // Initialize email transporter
 
@@ -36,6 +37,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

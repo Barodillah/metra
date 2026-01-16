@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import OtpPage from './pages/OtpPage';
 import DashboardPage from './pages/DashboardPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import ChatbotPage from './pages/ChatbotPage';
 import ChatHistoryPage from './pages/ChatHistoryPage';
 import HistoryPage from './pages/HistoryPage';
@@ -30,6 +31,14 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <DashboardPage />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/admin"
+                    element={
+                        <ProtectedRoute requiredRole="admin">
+                            <AdminDashboardPage />
                         </ProtectedRoute>
                     }
                 />
