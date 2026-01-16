@@ -10,7 +10,7 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'metra-secret-key-2026-change-in-production';
 const JWT_EXPIRES = '7d';
 
-const googleClient = new OAuth2Client(process.env.VITE_GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Generate 6-digit OTP
 const generateOtp = () => {
@@ -245,6 +245,7 @@ router.post('/login', async (req, res) => {
                 email: user.email,
                 role: user.role,
                 avatar_url: user.avatar_url,
+                birth_datetime: user.birth_datetime,
                 plan_type: planType
             }
         });
@@ -266,7 +267,7 @@ router.post('/google', async (req, res) => {
         // Verify Google token
         const ticket = await googleClient.verifyIdToken({
             idToken: credential,
-            audience: process.env.VITE_GOOGLE_CLIENT_ID
+            audience: process.env.GOOGLE_CLIENT_ID
         });
 
         const payload = ticket.getPayload();
@@ -319,6 +320,7 @@ router.post('/google', async (req, res) => {
                 email: user.email,
                 role: user.role,
                 avatar_url: user.avatar_url || picture,
+                birth_datetime: user.birth_datetime,
                 plan_type: planType
             }
         });
@@ -386,6 +388,7 @@ router.post('/google-userinfo', async (req, res) => {
                 email: user.email,
                 role: user.role,
                 avatar_url: user.avatar_url || picture,
+                birth_datetime: user.birth_datetime,
                 plan_type: planType
             }
         });
@@ -427,18 +430,103 @@ router.get('/me', authenticateToken, async (req, res) => {
     }
 });
 
+// ==================== GET BIRTH DATE CHANGE INFO ====================
+router.get('/birth-date-changes', authenticateToken, async (req, res) => {
+    try {
+        // Get plan info
+        const [plans] = await pool.query('SELECT plan_type FROM plans WHERE user_id = ?', [req.user.id]);
+        const planType = plans.length > 0 ? plans[0].plan_type : 'free';
+
+        // Get change count
+        const [changes] = await pool.query(
+            'SELECT COUNT(*) as count FROM birth_date_changes WHERE user_id = ?',
+            [req.user.id]
+        );
+        const changeCount = changes[0].count;
+
+        // Determine limit based on plan
+        const limits = {
+            'free': 1,
+            'pro': 5,
+            'visionary': -1 // -1 means unlimited
+        };
+        const limit = limits[planType] || 1;
+        const remaining = limit === -1 ? -1 : Math.max(0, limit - changeCount);
+
+        res.json({
+            plan_type: planType,
+            change_count: changeCount,
+            limit: limit,
+            remaining: remaining,
+            can_change: limit === -1 || changeCount < limit
+        });
+    } catch (error) {
+        console.error('Get birth date changes error:', error);
+        res.status(500).json({ error: 'Terjadi kesalahan server' });
+    }
+});
+
 // ==================== UPDATE PROFILE ====================
 router.put('/profile', authenticateToken, async (req, res) => {
     try {
         const { name, avatar_url, birth_datetime } = req.body;
+
+        // If birth_datetime is being updated, check limits
+        if (birth_datetime) {
+            // Get current user's birth_datetime
+            const [currentUser] = await pool.query('SELECT birth_datetime FROM users WHERE id = ?', [req.user.id]);
+            const currentBirthDatetime = currentUser[0]?.birth_datetime;
+
+            // Only check limits if birth_datetime is actually changing
+            if (currentBirthDatetime !== null && birth_datetime !== currentBirthDatetime?.toISOString?.()) {
+                // Get plan info
+                const [plans] = await pool.query('SELECT plan_type FROM plans WHERE user_id = ?', [req.user.id]);
+                const planType = plans.length > 0 ? plans[0].plan_type : 'free';
+
+                // Get change count
+                const [changes] = await pool.query(
+                    'SELECT COUNT(*) as count FROM birth_date_changes WHERE user_id = ?',
+                    [req.user.id]
+                );
+                const changeCount = changes[0].count;
+
+                // Check limits based on plan
+                const limits = { 'free': 1, 'pro': 5, 'visionary': -1 };
+                const limit = limits[planType] || 1;
+
+                if (limit !== -1 && changeCount >= limit) {
+                    const planName = planType === 'free' ? 'Free' : planType === 'pro' ? 'Pro' : 'Visionary';
+                    return res.status(403).json({
+                        error: `Batas perubahan tanggal lahir sudah tercapai (${limit}x untuk ${planName} Plan). Upgrade plan untuk lebih banyak perubahan.`,
+                        limit_reached: true,
+                        plan_type: planType,
+                        change_count: changeCount,
+                        limit: limit
+                    });
+                }
+
+                // Record the change
+                await pool.query(
+                    'INSERT INTO birth_date_changes (user_id, old_birth_datetime, new_birth_datetime) VALUES (?, ?, ?)',
+                    [req.user.id, currentBirthDatetime, birth_datetime]
+                );
+            } else if (currentBirthDatetime === null) {
+                // First time setting birth_datetime (not counted as a change)
+                // No limit check needed for initial setup
+            }
+        }
 
         await pool.query(
             'UPDATE users SET name = COALESCE(?, name), avatar_url = COALESCE(?, avatar_url), birth_datetime = COALESCE(?, birth_datetime) WHERE id = ?',
             [name, avatar_url, birth_datetime, req.user.id]
         );
 
+        // Get updated user with plan info
         const [users] = await pool.query('SELECT * FROM users WHERE id = ?', [req.user.id]);
         const user = users[0];
+
+        const [plans] = await pool.query('SELECT plan_type FROM plans WHERE user_id = ?', [req.user.id]);
+        const planType = plans.length > 0 ? plans[0].plan_type : 'free';
 
         res.json({
             message: 'Profil berhasil diperbarui',
@@ -448,7 +536,8 @@ router.put('/profile', authenticateToken, async (req, res) => {
                 email: user.email,
                 role: user.role,
                 avatar_url: user.avatar_url,
-                birth_datetime: user.birth_datetime
+                birth_datetime: user.birth_datetime,
+                plan_type: planType
             }
         });
     } catch (error) {

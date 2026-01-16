@@ -109,6 +109,18 @@ const DatePicker = ({ value, onChange, placeholder = "Pilih Tanggal", className 
 
     const selectedDate = value ? new Date(value) : null;
 
+    // Sync calendar view with existing value when modal opens
+    useEffect(() => {
+        if (isOpen && selectedDate) {
+            setCurrentMonth(selectedDate.getMonth());
+            setCurrentYear(selectedDate.getFullYear());
+        }
+        // Reset month/year picker when modal opens
+        if (isOpen) {
+            setShowMonthYearPicker(false);
+        }
+    }, [isOpen]);
+
     // Lock body scroll when modal is open
     useEffect(() => {
         if (isOpen) {

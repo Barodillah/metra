@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
     Sparkles,
@@ -23,6 +23,7 @@ import Navbar from '../components/Navbar';
 import DatePicker from '../components/DatePicker';
 import TimePicker from '../components/TimePicker';
 import AdSlot from '../components/AdSlot';
+import InsightSection from '../components/InsightSection';
 
 import {
     getWeton,
@@ -54,14 +55,18 @@ const Card = ({ title, value, subValue, icon: Icon, glowColor }) => (
 );
 
 const DashboardPage = () => {
-    const { user, logout, updateProfile } = useAuth();
+    const { user, logout, updateProfile, getBirthDateChangeInfo } = useAuth();
     const navigate = useNavigate();
 
-    // Parse birth_datetime into date and time parts for display
+    // Parse birth_datetime into date and time parts for display (using local timezone)
     const parseBirthDateTime = (dateTime) => {
         if (!dateTime) return { date: '', time: '' };
         const dt = new Date(dateTime);
-        const date = dt.toISOString().split('T')[0];
+        // Use local date components instead of UTC to avoid timezone shift
+        const year = dt.getFullYear();
+        const month = String(dt.getMonth() + 1).padStart(2, '0');
+        const day = String(dt.getDate()).padStart(2, '0');
+        const date = `${year}-${month}-${day}`;
         const time = dt.toTimeString().slice(0, 5);
         return { date, time };
     };
@@ -71,6 +76,32 @@ const DashboardPage = () => {
     const [birthDate, setBirthDate] = useState(initialDate);
     const [birthTime, setBirthTime] = useState(initialTime);
     const [showBirthModal, setShowBirthModal] = useState(!user?.birth_datetime);
+    const [birthDateChangeInfo, setBirthDateChangeInfo] = useState(null);
+    const [savingBirthDate, setSavingBirthDate] = useState(false);
+    const [insights, setInsights] = useState(null);
+    const [loadingInsights, setLoadingInsights] = useState(true);
+
+    // Sync birthDate and birthTime when user data changes (e.g., after relogin)
+    useEffect(() => {
+        const { date, time } = parseBirthDateTime(user?.birth_datetime);
+        setBirthDate(date);
+        setBirthTime(time);
+    }, [user?.birth_datetime]);
+
+    // Fetch birth date change info on mount
+    useEffect(() => {
+        const fetchBirthDateChangeInfo = async () => {
+            try {
+                const info = await getBirthDateChangeInfo();
+                setBirthDateChangeInfo(info);
+            } catch (error) {
+                console.error('Failed to fetch birth date change info:', error);
+            }
+        };
+        if (user?.birth_datetime) {
+            fetchBirthDateChangeInfo();
+        }
+    }, [user?.birth_datetime]);
 
     // Calculate spiritual data
     const weton = getWeton(birthDate);
@@ -92,16 +123,29 @@ const DashboardPage = () => {
 
     const handleSaveBirthDate = async () => {
         if (birthDate) {
+            setSavingBirthDate(true);
             try {
                 // Combine date and time into birth_datetime
                 const timeStr = birthTime || '00:00';
                 const birth_datetime = `${birthDate}T${timeStr}:00`;
 
                 await updateProfile({ birth_datetime });
+
+                // Refresh birth date change info
+                const info = await getBirthDateChangeInfo();
+                setBirthDateChangeInfo(info);
+
                 setShowBirthModal(false);
             } catch (error) {
                 console.error("Failed to update birth date", error);
-                alert("Gagal menyimpan data. Silakan coba lagi.");
+                // Check if it's a limit error
+                if (error.message?.includes('Batas perubahan')) {
+                    alert(error.message);
+                } else {
+                    alert("Gagal menyimpan data. Silakan coba lagi.");
+                }
+            } finally {
+                setSavingBirthDate(false);
             }
         }
     };
@@ -122,6 +166,33 @@ const DashboardPage = () => {
     ];
 
     const randomInsight = todayInsight[Math.floor(Math.random() * todayInsight.length)];
+
+    // Fetch AI insights on mount
+    useEffect(() => {
+        const fetchInsights = async () => {
+            try {
+                setLoadingInsights(true);
+                const token = localStorage.getItem('metra_token');
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/dashboard/insights`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setInsights(data);
+                }
+            } catch (error) {
+                console.error('Failed to fetch insights:', error);
+            } finally {
+                setLoadingInsights(false);
+            }
+        };
+
+        if (user) {
+            fetchInsights();
+        }
+    }, [user]);
 
     return (
         <div className="min-h-screen bg-[#0F172A] text-slate-300">
@@ -197,13 +268,43 @@ const DashboardPage = () => {
                                 <p className="text-[10px] text-slate-600 mt-2">Jam lahir membantu menghitung posisi planet & ascendant</p>
                             </div>
 
+                            {/* Limit Info - only show if user already has birth date */}
+                            {user?.birth_datetime && birthDateChangeInfo && (
+                                <div className={`mb-4 p-3 rounded-xl border ${birthDateChangeInfo.can_change ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                                    <div className="flex items-center gap-2">
+                                        <Zap size={14} className={birthDateChangeInfo.can_change ? 'text-indigo-400' : 'text-red-400'} />
+                                        <span className={`text-xs font-medium ${birthDateChangeInfo.can_change ? 'text-indigo-300' : 'text-red-300'}`}>
+                                            {birthDateChangeInfo.remaining === -1
+                                                ? 'Unlimited perubahan (Visionary)'
+                                                : birthDateChangeInfo.can_change
+                                                    ? `Sisa ${birthDateChangeInfo.remaining}x perubahan (${birthDateChangeInfo.plan_type} plan)`
+                                                    : `Limit tercapai (${birthDateChangeInfo.limit}x untuk ${birthDateChangeInfo.plan_type} plan)`
+                                            }
+                                        </span>
+                                    </div>
+                                    {!birthDateChangeInfo.can_change && (
+                                        <p className="text-[10px] text-slate-500 mt-1">Upgrade plan untuk lebih banyak perubahan</p>
+                                    )}
+                                </div>
+                            )}
+
                             <button
                                 onClick={handleSaveBirthDate}
-                                disabled={!birthDate}
+                                disabled={!birthDate || savingBirthDate || (user?.birth_datetime && birthDateChangeInfo && !birthDateChangeInfo.can_change)}
                                 className="w-full bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-[#6366F1]/30 hover:brightness-110 disabled:opacity-50 uppercase tracking-widest text-xs"
                             >
-                                Buka Peta Cahayaku
+                                {savingBirthDate ? 'Menyimpan...' : user?.birth_datetime ? 'Simpan Perubahan' : 'Buka Peta Cahayaku'}
                             </button>
+
+                            {/* Close button for existing users */}
+                            {user?.birth_datetime && (
+                                <button
+                                    onClick={() => setShowBirthModal(false)}
+                                    className="w-full mt-3 text-slate-400 hover:text-white text-xs font-medium py-2 transition-colors"
+                                >
+                                    Batal
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -278,30 +379,13 @@ const DashboardPage = () => {
 
                 {/* Today's Insight */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                    <div className="lg:col-span-2 bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 p-8 rounded-3xl animate-slide-up">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-3 bg-amber-500/10 rounded-xl">
-                                <Zap className="text-amber-500" size={22} />
-                            </div>
-                            <h2 className="text-xl font-black text-white">Insight Hari Ini</h2>
-                        </div>
-
-                        <p className="text-slate-300 leading-relaxed mb-6 text-lg">
-                            {randomInsight}
-                        </p>
-
-                        <div className="bg-indigo-500/10 border border-indigo-500/20 p-6 rounded-2xl">
-                            <div className="flex items-start gap-3">
-                                <Sparkles className="text-indigo-400 shrink-0 mt-1" size={20} />
-                                <div>
-                                    <p className="text-white font-bold mb-2">Tip Harian</p>
-                                    <p className="text-slate-400 text-sm leading-relaxed">
-                                        Gunakan waktu pagi untuk meditasi singkat dan set intention untuk hari ini.
-                                        Energi terkuat ada di pukul 09:00 - 11:00.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                    <div className="lg:col-span-2">
+                        <InsightSection
+                            insights={insights}
+                            loading={loadingInsights}
+                            planType={user?.plan_type || 'free'}
+                            onUpgrade={() => navigate('/pricing')}
+                        />
                     </div>
 
                     {/* Quick Actions */}
@@ -333,10 +417,22 @@ const DashboardPage = () => {
                                 <div className="flex-1">
                                     <h3 className="text-white font-bold">Update Tanggal Lahir</h3>
                                     {birthDate ? (
-                                        <p className="text-[#06B6D4] text-sm font-medium">
-                                            {new Date(birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            {birthTime && ` • ${birthTime}`}
-                                        </p>
+                                        <>
+                                            <p className="text-[#06B6D4] text-sm font-medium">
+                                                {new Date(birthDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                {birthTime && ` • ${birthTime}`}
+                                            </p>
+                                            {birthDateChangeInfo && (
+                                                <p className={`text-[10px] mt-1 ${birthDateChangeInfo.can_change ? 'text-slate-500' : 'text-red-400'}`}>
+                                                    {birthDateChangeInfo.remaining === -1
+                                                        ? '∞ perubahan tersisa'
+                                                        : birthDateChangeInfo.can_change
+                                                            ? `${birthDateChangeInfo.remaining}x perubahan tersisa`
+                                                            : 'Limit tercapai'
+                                                    }
+                                                </p>
+                                            )}
+                                        </>
                                     ) : (
                                         <p className="text-slate-400 text-sm">Belum diatur</p>
                                     )}

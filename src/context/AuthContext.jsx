@@ -172,6 +172,24 @@ export const AuthProvider = ({ children }) => {
         return data;
     };
 
+    const getBirthDateChangeInfo = async () => {
+        const token = localStorage.getItem('metra_token');
+
+        const response = await fetch(`${API_URL}/auth/birth-date-changes`, {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Gagal mengambil info perubahan tanggal lahir');
+        }
+
+        return data;
+    };
+
     const value = {
         user,
         loading,
@@ -183,6 +201,7 @@ export const AuthProvider = ({ children }) => {
         loginWithGoogle,
         logout,
         updateProfile,
+        getBirthDateChangeInfo,
     };
 
     return (

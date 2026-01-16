@@ -7,6 +7,7 @@ import OtpPage from './pages/OtpPage';
 import DashboardPage from './pages/DashboardPage';
 import ChatbotPage from './pages/ChatbotPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import GuestRoute from './components/GuestRoute';
 import { AdProvider } from './context/AdContext';
 
 function App() {
@@ -14,9 +15,9 @@ function App() {
         <AdProvider>
             <Routes>
                 <Route path="/" element={<LandingPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route path="/verify-otp" element={<OtpPage />} />
+                <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+                <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+                <Route path="/verify-otp" element={<GuestRoute><OtpPage /></GuestRoute>} />
                 <Route path="/chat" element={<ChatbotPage />} />
                 <Route
                     path="/dashboard"
