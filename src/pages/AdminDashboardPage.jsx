@@ -20,7 +20,10 @@ import {
     Lightbulb,
     Send,
     Loader2,
-    Trash2
+    Trash2,
+    X,
+    User,
+    Bot
 } from 'lucide-react';
 import {
     LineChart,
@@ -42,6 +45,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import { toWIB } from '../utils/dateTime';
+import { formatMessage } from '../utils/chat';
 
 // Stat Card Component
 const StatCard = ({ title, value, subValue, icon: Icon, trend, glowColor, onClick }) => (
@@ -102,6 +106,33 @@ const AdminDashboardPage = () => {
     const [brainstormMessages, setBrainstormMessages] = useState([]);
     const [brainstormInput, setBrainstormInput] = useState('');
     const [brainstormLoading, setBrainstormLoading] = useState(false);
+
+    // Session Chat History Modal state
+    const [selectedSession, setSelectedSession] = useState(null);
+    const [sessionMessages, setSessionMessages] = useState([]);
+    const [sessionModalOpen, setSessionModalOpen] = useState(false);
+    const [sessionLoading, setSessionLoading] = useState(false);
+
+    // Fetch session messages
+    const fetchSessionMessages = async (sessionId) => {
+        setSessionLoading(true);
+        try {
+            const token = localStorage.getItem('metra_token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/admin/session/${sessionId}/messages`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setSelectedSession(data.session);
+                setSessionMessages(data.messages);
+                setSessionModalOpen(true);
+            }
+        } catch (error) {
+            console.error('Failed to fetch session messages:', error);
+        } finally {
+            setSessionLoading(false);
+        }
+    };
 
     // Check admin role
     useEffect(() => {
@@ -516,12 +547,19 @@ const AdminDashboardPage = () => {
                                 </div>
                                 <div className="space-y-3 max-h-80 overflow-y-auto">
                                     {activity?.recent_sessions?.slice(0, 8).map((s, idx) => (
-                                        <div key={idx} className="p-3 bg-slate-800/50 rounded-xl hover:bg-slate-800 transition-colors">
+                                        <div
+                                            key={idx}
+                                            onClick={() => fetchSessionMessages(s.id)}
+                                            className="p-3 bg-slate-800/50 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer group"
+                                        >
                                             <div className="flex items-center justify-between mb-1">
                                                 <p className="text-white font-medium text-sm truncate">{s.user_name || 'Guest'}</p>
-                                                <span className="text-slate-500 text-[10px]">
-                                                    {toWIB(s.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-slate-500 text-[10px]">
+                                                        {toWIB(s.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    <ChevronRight size={14} className="text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                </div>
                                             </div>
                                             <p className="text-slate-400 text-xs line-clamp-1 mb-2">{s.summary || 'No summary'}</p>
                                             <div className="flex items-center gap-3 text-[10px]">
@@ -879,7 +917,7 @@ const AdminDashboardPage = () => {
                                                         <span className="text-xs text-amber-400 font-bold">AI Advisor</span>
                                                     </div>
                                                 )}
-                                                <p className="text-sm leading-relaxed whitespace-pre-line">{msg.content}</p>
+                                                <div className="text-sm leading-relaxed">{formatMessage(msg.content)}</div>
                                             </div>
                                         </div>
                                     ))
@@ -1004,6 +1042,123 @@ FITUR UTAMA METRA:
                     </div>
                 )}
             </main>
+
+            {/* Chat History Modal */}
+            {sessionModalOpen && (
+                <div
+                    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    onClick={() => setSessionModalOpen(false)}
+                >
+                    <div
+                        className="bg-[#1E293B] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] shadow-2xl flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-white/10 flex items-start justify-between flex-shrink-0">
+                            <div>
+                                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                    <MessageSquare className="text-[#06B6D4]" size={20} />
+                                    Riwayat Chat Session
+                                </h3>
+                                {selectedSession && (
+                                    <div className="mt-2 space-y-1">
+                                        <p className="text-slate-300 text-sm">
+                                            <span className="text-slate-500">User:</span> {selectedSession.user_name || selectedSession.guest_name || 'Guest'}
+                                        </p>
+                                        <p className="text-slate-400 text-xs">
+                                            {toWIB(selectedSession.created_at).toLocaleDateString('id-ID', {
+                                                weekday: 'long',
+                                                day: 'numeric',
+                                                month: 'long',
+                                                year: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </p>
+                                        {selectedSession.summary && (
+                                            <p className="text-slate-500 text-xs mt-1 italic">"{selectedSession.summary}"</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setSessionModalOpen(false)}
+                                className="p-2 rounded-xl hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Messages List */}
+                        <div className="p-6 overflow-y-auto flex-1 min-h-0 space-y-4 bg-[#0F172A]/50">
+                            {sessionLoading ? (
+                                <div className="flex items-center justify-center py-12">
+                                    <Loader2 className="animate-spin text-[#06B6D4]" size={32} />
+                                </div>
+                            ) : sessionMessages.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <MessageSquare className="mx-auto text-slate-600 mb-3" size={40} />
+                                    <p className="text-slate-500">Tidak ada pesan dalam session ini</p>
+                                </div>
+                            ) : (
+                                sessionMessages.map((msg, idx) => (
+                                    <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[85%] ${msg.role === 'user' ? 'order-2' : 'order-1'}`}>
+                                            <div className={`flex items-center gap-2 mb-1 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                {msg.role === 'user' ? (
+                                                    <>
+                                                        <span className="text-xs text-slate-500">User</span>
+                                                        <div className="p-1 rounded-full bg-[#6366F1]/20">
+                                                            <User size={12} className="text-[#6366F1]" />
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="p-1 rounded-full bg-[#06B6D4]/20">
+                                                            <Bot size={12} className="text-[#06B6D4]" />
+                                                        </div>
+                                                        <span className="text-xs text-slate-500">AI</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <div className={`p-4 rounded-2xl ${msg.role === 'user'
+                                                ? 'bg-[#6366F1] text-white'
+                                                : 'bg-slate-800 text-slate-200'
+                                                }`}>
+                                                <div className="text-sm leading-relaxed">{formatMessage(msg.content)}</div>
+                                            </div>
+                                            <p className="text-[10px] text-slate-600 mt-1 px-2">
+                                                {toWIB(msg.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-white/10 bg-[#1E293B] flex items-center justify-between flex-shrink-0 rounded-b-3xl">
+                            <div className="flex items-center gap-4 text-xs text-slate-500">
+                                <span>{sessionMessages.length} pesan</span>
+                                {selectedSession?.duration_seconds > 0 && (
+                                    <span>Durasi: {formatDuration(selectedSession.duration_seconds)}</span>
+                                )}
+                                {selectedSession?.ended_at && (
+                                    <span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">
+                                        Completed
+                                    </span>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setSessionModalOpen(false)}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium rounded-xl transition-colors"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

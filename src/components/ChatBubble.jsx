@@ -1,32 +1,5 @@
 import React from 'react';
-
-// Helper: Format chat message (bold, line breaks)
-const formatMessage = (text) => {
-    if (!text) return null;
-
-    // Split by line breaks
-    const lines = text.split('\n');
-
-    return lines.map((line, lineIndex) => {
-        // Process bold text (**text**)
-        const parts = line.split(/(\*\*[^*]+\*\*)/g);
-
-        const formattedLine = parts.map((part, partIndex) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-                // Remove ** and make bold
-                return <strong key={partIndex} className="font-bold">{part.slice(2, -2)}</strong>;
-            }
-            return part;
-        });
-
-        return (
-            <React.Fragment key={lineIndex}>
-                {formattedLine}
-                {lineIndex < lines.length - 1 && <br />}
-            </React.Fragment>
-        );
-    });
-};
+import { formatMessage } from '../utils/chat';
 
 const ChatBubble = ({ message, isAI }) => (
     <div className={`flex ${isAI ? 'justify-start' : 'justify-end'} mb-4 animate-fade-in`}>
@@ -42,3 +15,4 @@ const ChatBubble = ({ message, isAI }) => (
 );
 
 export default ChatBubble;
+

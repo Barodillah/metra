@@ -487,6 +487,48 @@ router.get('/activity', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
+// ==================== SESSION CHAT HISTORY (ADMIN VIEW) ====================
+router.get('/session/:sessionId/messages', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { sessionId } = req.params;
+
+        // Get session info
+        const [sessions] = await pool.query(`
+            SELECT 
+                cs.id,
+                cs.user_id,
+                u.name as user_name,
+                u.email as user_email,
+                cs.guest_name,
+                cs.summary,
+                cs.duration_seconds,
+                cs.created_at,
+                cs.ended_at
+            FROM chat_sessions cs
+            LEFT JOIN users u ON cs.user_id = u.id
+            WHERE cs.id = ?
+        `, [sessionId]);
+
+        if (sessions.length === 0) {
+            return res.status(404).json({ error: 'Session tidak ditemukan' });
+        }
+
+        // Get all messages from this session
+        const [messages] = await pool.query(
+            'SELECT id, role, content, created_at FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC',
+            [sessionId]
+        );
+
+        res.json({
+            session: sessions[0],
+            messages
+        });
+    } catch (error) {
+        console.error('Get session messages error:', error);
+        res.status(500).json({ error: 'Gagal mengambil riwayat chat' });
+    }
+});
+
 // ==================== BRAINSTORM AI CHAT ====================
 const OPENROUTER_API_KEY = process.env.VITE_OPENROUTER_API_KEY;
 const OPENROUTER_MODEL = process.env.VITE_OPENROUTER_MODEL || 'xiaomi/mimo-v2-flash:free';

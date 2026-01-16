@@ -16,34 +16,7 @@ import {
     Moon,
     Sun
 } from 'lucide-react';
-
-// Helper: Format chat message (bold, line breaks)
-const formatMessage = (text) => {
-    if (!text) return null;
-
-    // Split by line breaks
-    const lines = text.split('\n');
-
-    return lines.map((line, lineIndex) => {
-        // Process bold text (**text**)
-        const parts = line.split(/(\*\*[^*]+\*\*)/g);
-
-        const formattedLine = parts.map((part, partIndex) => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-                // Remove ** and make bold
-                return <strong key={partIndex} className="font-bold text-white">{part.slice(2, -2)}</strong>;
-            }
-            return part;
-        });
-
-        return (
-            <React.Fragment key={lineIndex}>
-                {formattedLine}
-                {lineIndex < lines.length - 1 && <br />}
-            </React.Fragment>
-        );
-    });
-};
+import { formatMessage } from '../utils/chat';
 
 // Energy Score Bar Component
 const EnergyBar = ({ label, value, color, icon: Icon }) => (
