@@ -8,7 +8,9 @@ import {
     LockKeyhole,
     ChevronRight,
     Trash2,
-    Loader2
+    Loader2,
+    X,
+    Share2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -74,6 +76,12 @@ const ChatbotPage = () => {
     const [isLoadingSession, setIsLoadingSession] = useState(true);
     const [isClearing, setIsClearing] = useState(false);
     const [isNavigatingBack, setIsNavigatingBack] = useState(false);
+    // Share modal state
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareContent, setShareContent] = useState('');
+    const [shareCaption, setShareCaption] = useState('');
+    const [shareMessageId, setShareMessageId] = useState(null);
+    const [isSharing, setIsSharing] = useState(false);
     const [chatFocus, setChatFocus] = useState(() => {
         // If coming from navigation state (like dashboard), use that focus
         const initialFocus = location.state?.focus;
@@ -342,6 +350,7 @@ PENTING: JANGAN mencampuradukkan disiplin ilmu lain jika tidak relevan dengan fo
         try {
             const userContext = buildUserContext();
             let aiResponseText = '';
+            let aiMessageId = null;
 
             if (isAuthenticated && sessionId) {
                 // Use session-based chat API
@@ -361,6 +370,7 @@ PENTING: JANGAN mencampuradukkan disiplin ilmu lain jika tidak relevan dengan fo
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 aiResponseText = data.ai_message.content;
+                aiMessageId = data.ai_message.id; // Store message ID for sharing
             } else {
                 // Use quick chat API for guests
                 const res = await fetch(`${API_URL}/chat/quick`, {
@@ -384,7 +394,7 @@ PENTING: JANGAN mencampuradukkan disiplin ilmu lain jika tidak relevan dengan fo
             }
 
             setChatCount(prev => prev + 1);
-            setMessages(prev => [...prev, { text: aiResponseText, isAI: true }]);
+            setMessages(prev => [...prev, { text: aiResponseText, isAI: true, id: aiMessageId }]);
 
             const newAiResponseCount = aiResponseCount + 1;
             setAiResponseCount(newAiResponseCount);
@@ -397,6 +407,62 @@ PENTING: JANGAN mencampuradukkan disiplin ilmu lain jika tidak relevan dengan fo
             setMessages(prev => [...prev, { text: "Maaf, sistem sedang sibuk. Coba lagi nanti.", isAI: true }]);
         } finally {
             setIsTyping(false);
+        }
+    };
+
+    // Handle share button click - open modal
+    const handleShare = (messageContent, messageId = null) => {
+        if (!isAuthenticated) {
+            toast.error('Login untuk membagikan ke feed');
+            return;
+        }
+        setShareContent(messageContent);
+        setShareMessageId(messageId);
+        setShareCaption('');
+        setShowShareModal(true);
+    };
+
+    // Confirm and submit share to feed
+    const confirmShare = async () => {
+        if (!shareContent) return;
+
+        setIsSharing(true);
+        const toastId = toast.loading('Membagikan ke feed...');
+
+        try {
+            const token = localStorage.getItem('metra_token');
+            const res = await fetch(`${API_URL}/social/posts`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: shareCaption.trim() || '✨ Insight dari Metra AI Advisor',
+                    postType: 'response_advisor',
+                    referenceId: shareMessageId,
+                    sharedPayload: {
+                        type: 'chat_response',
+                        content: shareContent.substring(0, 1000), // Limit content length
+                        source: 'Metra AI Advisor',
+                        messageId: shareMessageId,
+                        date: new Date().toISOString()
+                    }
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            toast.success('Berhasil dibagikan ke feed! 🎉', { id: toastId });
+            setShowShareModal(false);
+            setShareContent('');
+            setShareCaption('');
+        } catch (error) {
+            console.error('Share error:', error);
+            toast.error('Gagal membagikan ke feed', { id: toastId });
+        } finally {
+            setIsSharing(false);
         }
     };
 
@@ -500,7 +566,12 @@ PENTING: JANGAN mencampuradukkan disiplin ilmu lain jika tidak relevan dengan fo
             <main className="absolute inset-0 overflow-y-auto px-6 pt-[88px] pb-[160px] z-10 scroll-smooth">
                 <div className="max-w-4xl mx-auto">
                     {messages.map((m, i) => (
-                        <ChatBubble key={i} message={m.text} isAI={m.isAI} />
+                        <ChatBubble
+                            key={i}
+                            message={m.text}
+                            isAI={m.isAI}
+                            onShare={m.isAI && isAuthenticated ? () => handleShare(m.text, m.id) : null}
+                        />
                     ))}
 
                     {isTyping && (
@@ -604,6 +675,84 @@ PENTING: JANGAN mencampuradukkan disiplin ilmu lain jika tidak relevan dengan fo
                     </button>
                 </form>
             </footer>
+
+            {/* Share Modal */}
+            {showShareModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-[#1E293B] border border-white/10 rounded-3xl max-w-lg w-full shadow-2xl animate-fade-in">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-white/5">
+                            <div className="flex items-center gap-2">
+                                <Share2 size={18} className="text-[#06B6D4]" />
+                                <h3 className="font-bold text-white">Bagikan ke Feed</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowShareModal(false)}
+                                className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+                            >
+                                <X size={18} className="text-slate-400" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-4 space-y-4">
+                            {/* Caption Input */}
+                            <div>
+                                <label className="text-xs text-slate-400 font-medium mb-2 block">
+                                    Tambahkan caption (opsional)
+                                </label>
+                                <textarea
+                                    value={shareCaption}
+                                    onChange={(e) => setShareCaption(e.target.value)}
+                                    placeholder="Tulis sesuatu tentang insight ini..."
+                                    className="w-full bg-[#0F172A] border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:border-[#6366F1]/50 outline-none resize-none"
+                                    rows={3}
+                                    maxLength={500}
+                                />
+                                <p className="text-[10px] text-slate-500 mt-1 text-right">
+                                    {shareCaption.length}/500
+                                </p>
+                            </div>
+
+                            {/* Content Preview */}
+                            <div>
+                                <label className="text-xs text-slate-400 font-medium mb-2 block">
+                                    Preview Insight
+                                </label>
+                                <div className="bg-[#0F172A] border border-white/5 rounded-xl p-3 max-h-40 overflow-y-auto">
+                                    <p className="text-xs text-slate-300 line-clamp-6">
+                                        {shareContent.substring(0, 500)}{shareContent.length > 500 ? '...' : ''}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-white/5 flex gap-3">
+                            <button
+                                onClick={() => setShowShareModal(false)}
+                                className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-slate-300 font-bold rounded-xl transition-colors text-sm"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={confirmShare}
+                                disabled={isSharing}
+                                className="flex-1 py-3 bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white font-bold rounded-xl transition-all hover:brightness-110 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                            >
+                                {isSharing ? (
+                                    <Loader2 size={16} className="animate-spin" />
+                                ) : (
+                                    <>
+                                        <Share2 size={14} />
+                                        Bagikan
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

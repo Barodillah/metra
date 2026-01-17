@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
@@ -26,6 +27,15 @@ const generateToken = (user) => {
     );
 };
 
+const safelyParseJSON = (json) => {
+    try {
+        if (typeof json === 'string') return JSON.parse(json);
+        return json;
+    } catch (e) {
+        return null;
+    }
+};
+
 // Middleware to verify JWT
 export const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -43,6 +53,72 @@ export const authenticateToken = (req, res, next) => {
         next();
     });
 };
+
+// ==================== CHECK USERNAME ====================
+router.post('/check-username', authenticateToken, async (req, res) => {
+    try {
+        const { username } = req.body;
+
+        if (!username) {
+            return res.status(400).json({ error: 'Username wajib diisi' });
+        }
+
+        if (username.length < 3) {
+            return res.status(400).json({ error: 'Username minimal 3 karakter' });
+        }
+
+        if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+            return res.status(400).json({ error: 'Username hanya boleh huruf, angka, titik, underscore, dan strip' });
+        }
+
+        // Check if username exists and not owned by current user (though usually unique globally)
+        const [existing] = await pool.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, req.user.id]);
+
+        if (existing.length > 0) {
+            return res.json({ available: false });
+        }
+
+        res.json({ available: true });
+    } catch (error) {
+        console.error('Check username error:', error);
+        res.status(500).json({ error: 'Terjadi kesalahan server' });
+    }
+});
+
+// ==================== SET USERNAME ====================
+router.put('/username', authenticateToken, async (req, res) => {
+    try {
+        const { username } = req.body;
+        console.log(`Setting username for user ${req.user.id}: ${username}`);
+
+        if (!username) {
+            return res.status(400).json({ error: 'Username wajib diisi' });
+        }
+
+        // Basic validation
+        if (username.length < 3 || username.length > 30) {
+            return res.status(400).json({ error: 'Username harus antara 3-30 karakter' });
+        }
+
+        if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
+            return res.status(400).json({ error: 'Username hanya boleh huruf, angka, titik, underscore, dan strip' });
+        }
+
+        // Check uniqueness
+        const [existing] = await pool.query('SELECT id FROM users WHERE username = ?', [username]);
+        if (existing.length > 0) {
+            return res.status(400).json({ error: 'Username sudah digunakan' });
+        }
+
+        // Update user
+        await pool.query('UPDATE users SET username = ? WHERE id = ?', [username, req.user.id]);
+
+        res.json({ message: 'Username berhasil disimpan', username });
+    } catch (error) {
+        console.error('Set username error:', error);
+        res.status(500).json({ error: 'Terjadi kesalahan server' });
+    }
+});
 
 // ==================== REGISTER ====================
 router.post('/register', async (req, res) => {
@@ -75,7 +151,7 @@ router.post('/register', async (req, res) => {
         const otp = generateOtp();
         const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        // Insert user
+        // Insert user (username is NULL by default)
         const [result] = await pool.query(
             `INSERT INTO users (name, email, password, otp_code, otp_expires_at) VALUES (?, ?, ?, ?, ?)`,
             [name, email, hashedPassword, otp, otpExpires]
@@ -140,7 +216,8 @@ router.post('/verify-otp', async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                avatar_url: user.avatar_url
+                avatar_url: user.avatar_url,
+                username: user.username
             }
         });
     } catch (error) {
@@ -246,7 +323,8 @@ router.post('/login', async (req, res) => {
                 role: user.role,
                 avatar_url: user.avatar_url,
                 birth_datetime: user.birth_datetime,
-                plan_type: planType
+                plan_type: planType,
+                username: user.username // Ensure username is returned
             }
         });
     } catch (error) {
@@ -280,7 +358,7 @@ router.post('/google', async (req, res) => {
         let isNewUser = false;
 
         if (users.length === 0) {
-            // Create new user
+            // Create new user (username NULL)
             const [result] = await pool.query(
                 `INSERT INTO users (email, name, avatar_url, google_id, email_verified) VALUES (?, ?, ?, ?, TRUE)`,
                 [email, name, picture, googleId]
@@ -321,7 +399,8 @@ router.post('/google', async (req, res) => {
                 role: user.role,
                 avatar_url: user.avatar_url || picture,
                 birth_datetime: user.birth_datetime,
-                plan_type: planType
+                plan_type: planType,
+                username: user.username
             }
         });
     } catch (error) {
@@ -348,7 +427,7 @@ router.post('/google-userinfo', async (req, res) => {
         let isNewUser = false;
 
         if (users.length === 0) {
-            // Create new user
+            // Create new user (username NULL)
             const [result] = await pool.query(
                 `INSERT INTO users (email, name, avatar_url, google_id, email_verified) VALUES (?, ?, ?, ?, TRUE)`,
                 [email, name, picture, googleId]
@@ -389,7 +468,8 @@ router.post('/google-userinfo', async (req, res) => {
                 role: user.role,
                 avatar_url: user.avatar_url || picture,
                 birth_datetime: user.birth_datetime,
-                plan_type: planType
+                plan_type: planType,
+                username: user.username
             }
         });
     } catch (error) {
@@ -420,8 +500,11 @@ router.get('/me', authenticateToken, async (req, res) => {
                 email: user.email,
                 role: user.role,
                 avatar_url: user.avatar_url,
+                bio: user.bio,
+                visibility_settings: safelyParseJSON(user.visibility_settings),
                 birth_datetime: user.birth_datetime,
-                plan_type: planType
+                plan_type: planType,
+                username: user.username // Ensure username is returned
             }
         });
     } catch (error) {
@@ -469,7 +552,7 @@ router.get('/birth-date-changes', authenticateToken, async (req, res) => {
 // ==================== UPDATE PROFILE ====================
 router.put('/profile', authenticateToken, async (req, res) => {
     try {
-        const { name, avatar_url, birth_datetime } = req.body;
+        const { name, avatar_url, birth_datetime, bio, visibility_settings } = req.body;
 
         // If birth_datetime is being updated, check limits
         if (birth_datetime) {
@@ -510,15 +593,31 @@ router.put('/profile', authenticateToken, async (req, res) => {
                     'INSERT INTO birth_date_changes (user_id, old_birth_datetime, new_birth_datetime) VALUES (?, ?, ?)',
                     [req.user.id, currentBirthDatetime, birth_datetime]
                 );
-            } else if (currentBirthDatetime === null) {
-                // First time setting birth_datetime (not counted as a change)
-                // No limit check needed for initial setup
             }
         }
 
+        // Prepare update query
+        const updates = [];
+        const values = [];
+
+        if (name !== undefined) { updates.push('name = ?'); values.push(name); }
+        if (avatar_url !== undefined) { updates.push('avatar_url = ?'); values.push(avatar_url); }
+        if (birth_datetime !== undefined) { updates.push('birth_datetime = ?'); values.push(birth_datetime); }
+        if (bio !== undefined) { updates.push('bio = ?'); values.push(bio); }
+        if (visibility_settings !== undefined) {
+            updates.push('visibility_settings = ?');
+            values.push(JSON.stringify(visibility_settings));
+        }
+
+        if (updates.length === 0) {
+            return res.json({ message: 'Tidak ada data yang diubah' });
+        }
+
+        values.push(req.user.id);
+
         await pool.query(
-            'UPDATE users SET name = COALESCE(?, name), avatar_url = COALESCE(?, avatar_url), birth_datetime = COALESCE(?, birth_datetime) WHERE id = ?',
-            [name, avatar_url, birth_datetime, req.user.id]
+            `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+            values
         );
 
         // Get updated user with plan info
@@ -536,12 +635,55 @@ router.put('/profile', authenticateToken, async (req, res) => {
                 email: user.email,
                 role: user.role,
                 avatar_url: user.avatar_url,
+                bio: user.bio,
+                visibility_settings: safelyParseJSON(user.visibility_settings),
                 birth_datetime: user.birth_datetime,
-                plan_type: planType
+                plan_type: planType,
+                username: user.username
             }
         });
     } catch (error) {
         console.error('Update profile error:', error);
+        res.status(500).json({ error: 'Terjadi kesalahan server' });
+    }
+});
+
+// ==================== CHANGE PASSWORD ====================
+router.post('/change-password', authenticateToken, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Password saat ini dan password baru wajib diisi' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password baru minimal 6 karakter' });
+        }
+
+        // Get user with password
+        const [users] = await pool.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
+        const user = users[0];
+
+        if (!user.password) {
+            return res.status(400).json({ error: 'Akun ini menggunakan login sosial (Google). Tidak bisa ubah password.' });
+        }
+
+        // Verify current password
+        const validPassword = await bcrypt.compare(currentPassword, user.password);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Password saat ini salah' });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password
+        await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, req.user.id]);
+
+        res.json({ message: 'Password berhasil diubah' });
+    } catch (error) {
+        console.error('Change password error:', error);
         res.status(500).json({ error: 'Terjadi kesalahan server' });
     }
 });

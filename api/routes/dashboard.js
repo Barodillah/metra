@@ -618,13 +618,50 @@ router.get('/insights', authenticateToken, async (req, res) => {
             };
         }
 
+        // Helper function to save insight to database
+        const saveInsight = async (insightType, title, content, metadata = null) => {
+            try {
+                // Check if insight already exists for today
+                const [existing] = await pool.query(
+                    `SELECT id FROM user_insights 
+                     WHERE user_id = ? AND insight_type = ? AND generated_date = ?`,
+                    [req.user.id, insightType, timeInfo.dateString]
+                );
+
+                if (existing.length > 0) {
+                    // Return existing insight ID
+                    return existing[0].id;
+                }
+
+                // Insert new insight
+                const [result] = await pool.query(
+                    `INSERT INTO user_insights (user_id, insight_type, title, content, metadata, generated_date)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [req.user.id, insightType, title, content, metadata ? JSON.stringify(metadata) : null, timeInfo.dateString]
+                );
+
+                return result.insertId;
+            } catch (error) {
+                console.error('Error saving insight:', error);
+                return null;
+            }
+        };
+
         // Base response (FREE tier)
         const wetonShio = `${todayWeton.day} ${todayWeton.pasaran} - ${todayShioData.full}`;
         const dailyTip = await generateDailyTip(todayWeton, todayZodiac, todayShioData.element, todayMoonPhase);
 
+        // Save daily tip insight
+        const dailyTipId = await saveInsight('daily_tip', 'Tip Harian', dailyTip, {
+            weton: `${todayWeton.day} ${todayWeton.pasaran}`,
+            zodiac: todayZodiac,
+            moonPhase: todayMoonPhase
+        });
+
         const response = {
             tier: planType,
             dailyTip,
+            dailyTipId,
             wetonShio,
             neptu: todayWeton.neptu,
             todaySpiritual: {
@@ -645,7 +682,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
             response.energyScores = calculateEnergyScores(todayWeton, userZodiac, userLifePath, todayMoonPhase);
             response.goodDayChecklist = getGoodDayChecklist(todayWeton, todayMoonPhase, userZodiac);
 
-            response.personalizedInsight = await generatePersonalizedInsight(
+            const personalizedInsight = await generatePersonalizedInsight(
                 {
                     name: user.name || 'Penjelajah',
                     birthWeton: birthWeton ? `${birthWeton.day} ${birthWeton.pasaran}` : 'Tidak diketahui',
@@ -661,6 +698,16 @@ router.get('/insights', authenticateToken, async (req, res) => {
                 }
             );
 
+            // Save personalized insight
+            const personalizedInsightId = await saveInsight('daily_reading', 'Insight Personal Hari Ini', personalizedInsight, {
+                userName: user.name,
+                zodiac: userZodiac,
+                lifePath: userLifePath
+            });
+
+            response.personalizedInsight = personalizedInsight;
+            response.personalizedInsightId = personalizedInsightId;
+
             // BaZi calculation for non-free users
             if (user.birth_datetime) {
                 const birthDate = new Date(user.birth_datetime);
@@ -675,6 +722,17 @@ router.get('/insights', authenticateToken, async (req, res) => {
                 const baziElements = getBaZiElements(baziPillars);
                 const baziShenSha = getBaZiShenSha(baziPillars);
                 const baziInsight = await generateBaZiInsight(baziPillars, baziElements, baziShenSha, user.name);
+
+                // Save BaZi insight
+                const baziInsightId = await saveInsight('bazi_reading', 'BaZi Reading', baziInsight, {
+                    pillars: {
+                        year: baziPillars.year.hanzi,
+                        month: baziPillars.month.hanzi,
+                        day: baziPillars.day.hanzi,
+                        hour: baziPillars.hour.hanzi
+                    },
+                    dominant: baziElements.dominant
+                });
 
                 response.bazi = {
                     pillars: {
@@ -705,7 +763,8 @@ router.get('/insights', authenticateToken, async (req, res) => {
                     },
                     elements: baziElements,
                     shenSha: baziShenSha,
-                    insight: baziInsight
+                    insight: baziInsight,
+                    insightId: baziInsightId
                 };
             }
         }
@@ -714,7 +773,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
         if (planType === 'visionary') {
             response.goldenHour = getGoldenHour(todayWeton, userBirthData?.zodiac || todayZodiac, timeInfo.hours);
 
-            response.forecast = await generateVisionaryForecast(
+            const forecast = await generateVisionaryForecast(
                 {
                     name: user.name || 'Penjelajah',
                     birthWeton: userBirthData?.weton ? `${userBirthData.weton.day} ${userBirthData.weton.pasaran}` : 'Tidak diketahui',
@@ -726,6 +785,16 @@ router.get('/insights', authenticateToken, async (req, res) => {
                     moonPhase: todayMoonPhase
                 }
             );
+
+            // Save Visionary Forecast
+            if (forecast) {
+                const forecastId = await saveInsight('visionary_forecast', 'Visionary Forecast', forecast, {
+                    zodiac: userBirthData?.zodiac || todayZodiac,
+                    shio: userBirthData?.shio?.full || todayShioData.full
+                });
+                response.forecast = forecast;
+                response.forecastId = forecastId;
+            }
 
             // Multi-profile placeholder
             response.multiProfile = {

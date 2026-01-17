@@ -13,6 +13,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 import authRoutes from './routes/auth.js';
 import chatRoutes from './routes/chat.js';
 import dashboardRoutes from './routes/dashboard.js';
+import socialRoutes from './routes/social.js';
 import adminRoutes from './routes/admin.js';
 import './db.js'; // Initialize database connection
 import './email.js'; // Initialize email transporter
@@ -22,7 +23,7 @@ const PORT = process.env.API_PORT || 3001;
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'],
+    origin: ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173', 'https://metra-one.vercel.app'],
     credentials: true
 }));
 app.use(express.json());
@@ -37,6 +38,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/social', socialRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Health check

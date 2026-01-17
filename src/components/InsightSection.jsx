@@ -14,7 +14,8 @@ import {
     Crown,
     Star,
     Moon,
-    Sun
+    Sun,
+    Share2
 } from 'lucide-react';
 import { formatMessage } from '../utils/chat';
 
@@ -56,8 +57,19 @@ const ChecklistItem = ({ label, isGood }) => (
     </div>
 );
 
+// Share Button Component
+const ShareButton = ({ onClick, className = '' }) => (
+    <button
+        onClick={onClick}
+        className={`flex items-center gap-1.5 text-[10px] text-slate-500 hover:text-[#06B6D4] transition-colors font-medium ${className}`}
+    >
+        <Share2 size={12} />
+        Bagikan
+    </button>
+);
+
 // Main InsightSection Component
-const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
+const InsightSection = ({ insights, loading, planType, onUpgrade, onShare }) => {
     if (loading) {
         return (
             <div className="bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 p-8 rounded-3xl animate-pulse">
@@ -79,11 +91,16 @@ const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
                     <div className="p-2 bg-indigo-500/20 rounded-lg">
                         <Sparkles className="text-indigo-400" size={18} />
                     </div>
-                    <div>
+                    <div className="flex-1">
                         <p className="text-white font-bold mb-1 text-sm">Tip Harian</p>
                         <p className="text-slate-300 text-sm leading-relaxed">
                             {insights.dailyTip}
                         </p>
+                        {onShare && insights.dailyTipId && (
+                            <div className="mt-3 pt-2 border-t border-indigo-500/10">
+                                <ShareButton onClick={() => onShare('daily_tip', insights.dailyTipId, 'Tip Harian', insights.dailyTip)} />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -169,6 +186,11 @@ const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
                     <div className="text-slate-300 text-sm leading-relaxed">
                         {formatMessage(insights.personalizedInsight)}
                     </div>
+                    {onShare && insights.personalizedInsightId && (
+                        <div className="mt-3 pt-2 border-t border-[#6366F1]/10">
+                            <ShareButton onClick={() => onShare('daily_reading', insights.personalizedInsightId, 'Personal Insight', insights.personalizedInsight)} />
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -218,11 +240,16 @@ const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
                     <div className="p-2 bg-indigo-500/20 rounded-lg">
                         <Sparkles className="text-indigo-400" size={18} />
                     </div>
-                    <div>
+                    <div className="flex-1">
                         <p className="text-white font-bold mb-1 text-sm">Tip Harian</p>
                         <p className="text-slate-300 text-sm leading-relaxed">
                             {insights.dailyTip}
                         </p>
+                        {onShare && insights.dailyTipId && (
+                            <div className="mt-3 pt-2 border-t border-indigo-500/10">
+                                <ShareButton onClick={() => onShare('daily_tip', insights.dailyTipId, 'Tip Harian', insights.dailyTip)} />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -297,6 +324,11 @@ const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
                     <div className="text-slate-300 text-sm leading-relaxed">
                         {formatMessage(insights.forecast)}
                     </div>
+                    {onShare && insights.forecastId && (
+                        <div className="mt-3 pt-2 border-t border-violet-500/10">
+                            <ShareButton onClick={() => onShare('visionary_forecast', insights.forecastId, 'Visionary Forecast', insights.forecast)} />
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -310,6 +342,11 @@ const InsightSection = ({ insights, loading, planType, onUpgrade }) => {
                     <div className="text-slate-300 text-sm leading-relaxed">
                         {formatMessage(insights.personalizedInsight)}
                     </div>
+                    {onShare && insights.personalizedInsightId && (
+                        <div className="mt-3 pt-2 border-t border-[#6366F1]/10">
+                            <ShareButton onClick={() => onShare('daily_reading', insights.personalizedInsightId, 'Personal Insight', insights.personalizedInsight)} />
+                        </div>
+                    )}
                 </div>
             )}
 

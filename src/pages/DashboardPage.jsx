@@ -17,8 +17,12 @@ import {
     Globe,
     Sunrise,
     Scroll,
-    X
+    X,
+    Users,
+    Share2,
+    Loader2
 } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import DatePicker from '../components/DatePicker';
@@ -151,6 +155,12 @@ const DashboardPage = () => {
     const [upgradeTargetPlan, setUpgradeTargetPlan] = useState('pro');
     const [showBaZiModal, setShowBaZiModal] = useState(false);
 
+    // Share Modal State
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareData, setShareData] = useState({ type: '', id: null, title: '', content: '' });
+    const [shareCaption, setShareCaption] = useState('');
+    const [isSharing, setIsSharing] = useState(false);
+
     const handleUpgradeClick = (targetPlan) => {
         setUpgradeTargetPlan(targetPlan);
         setShowPaymentModal(true);
@@ -158,12 +168,61 @@ const DashboardPage = () => {
 
     const handlePaymentSuccess = async () => {
         try {
-            // Update user plan locally for immediate feedback (in real app, this would be handled by backend webhook/response)
             await updateProfile({ plan_type: upgradeTargetPlan });
             setShowPaymentModal(false);
-            // Optional: Show success toast/alert
         } catch (error) {
             console.error("Failed to upgrade locally", error);
+        }
+    };
+
+    // Handle insight share - open modal
+    const handleInsightShare = (insightType, insightId, title, content) => {
+        setShareData({ type: insightType, id: insightId, title, content });
+        setShareCaption('');
+        setShowShareModal(true);
+    };
+
+    // Confirm and submit share to feed
+    const confirmInsightShare = async () => {
+        if (!shareData.id) return;
+
+        setIsSharing(true);
+        const toastId = toast.loading('Membagikan ke feed...');
+
+        try {
+            const token = localStorage.getItem('metra_token');
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/social/posts`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    content: shareCaption.trim() || `✨ ${shareData.title}`,
+                    postType: 'insight_share',
+                    referenceId: shareData.id,
+                    sharedPayload: {
+                        type: shareData.type,
+                        title: shareData.title,
+                        content: shareData.content.substring(0, 1000),
+                        source: 'Dashboard Insight',
+                        date: new Date().toISOString()
+                    }
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            toast.success('Berhasil dibagikan ke feed! 🎉', { id: toastId });
+            setShowShareModal(false);
+            setShareData({ type: '', id: null, title: '', content: '' });
+            setShareCaption('');
+        } catch (error) {
+            console.error('Share error:', error);
+            toast.error('Gagal membagikan ke feed', { id: toastId });
+        } finally {
+            setIsSharing(false);
         }
     };
 
@@ -307,6 +366,16 @@ const DashboardPage = () => {
     return (
         <div className="min-h-screen bg-[#0F172A] text-slate-300">
             <Navbar />
+
+            {/* Toast Container */}
+            <Toaster
+                position="top-center"
+                toastOptions={{
+                    style: { background: '#1E293B', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' },
+                    success: { iconTheme: { primary: '#06B6D4', secondary: '#fff' } },
+                    loading: { iconTheme: { primary: '#6366F1', secondary: '#fff' } }
+                }}
+            />
 
             {/* Payment Modal */}
             <PaymentModal
@@ -617,13 +686,24 @@ const DashboardPage = () => {
 
                             <div className="mt-6 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/10">
                                 <p className="text-[10px] text-slate-400 italic mb-2">Punya pertanyaan spesifik tentang BaZi Anda?</p>
-                                <button
-                                    onClick={() => navigate('/chat', { state: { focus: 'BaZi' } })}
-                                    className="w-full bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 hover:text-indigo-200 text-xs font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2"
-                                >
-                                    <MessageSquare size={14} />
-                                    Tanya AI Advisor
-                                </button>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => navigate('/chat', { state: { focus: 'BaZi' } })}
+                                        className="flex-1 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 text-indigo-300 hover:text-indigo-200 text-xs font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <MessageSquare size={14} />
+                                        Tanya AI
+                                    </button>
+                                    {insights.bazi.insightId && (
+                                        <button
+                                            onClick={() => handleInsightShare('bazi_reading', insights.bazi.insightId, 'Insight BaZi AI', insights.bazi.insight)}
+                                            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-[#06B6D4] text-xs font-medium py-2 px-3 rounded-lg transition-all"
+                                        >
+                                            <Share2 size={12} />
+                                            Bagikan
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -637,6 +717,7 @@ const DashboardPage = () => {
                             loading={loadingInsights}
                             planType={user?.plan_type || 'free'}
                             onUpgrade={(plan) => handleUpgradeClick(plan || 'pro')}
+                            onShare={handleInsightShare}
                         />
                     </div>
 
@@ -655,6 +736,27 @@ const DashboardPage = () => {
                                     <p className="text-white/70 text-sm">Tanyakan apa saja</p>
                                 </div>
                                 <ChevronRight className="text-white/70 group-hover:translate-x-1 transition-transform" size={20} />
+                            </div>
+                        </Link>
+
+                        <Link
+                            to="/social"
+                            className="block bg-[#1E293B]/60 backdrop-blur-xl border border-white/10 p-6 rounded-3xl hover:border-white/20 transition-all shadow-lg shadow-pink-500/10 group"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-gradient-to-br from-pink-500/20 to-rose-500/20 rounded-xl flex items-center justify-center border border-pink-500/20">
+                                    <Users className="text-pink-400" size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-white font-bold">Komunitas Spiritual</h3>
+                                    <p className="text-slate-400 text-sm">Temukan teman seperjalanan</p>
+                                </div>
+                                <div className="flex -space-x-2 mr-2">
+                                    <div className="w-6 h-6 rounded-full bg-slate-700 border border-[#1E293B]"></div>
+                                    <div className="w-6 h-6 rounded-full bg-slate-600 border border-[#1E293B]"></div>
+                                    <div className="w-6 h-6 rounded-full bg-slate-500 border border-[#1E293B] flex items-center justify-center text-[8px] text-white">3+</div>
+                                </div>
+                                <ChevronRight className="text-slate-500 group-hover:translate-x-1 transition-transform" size={20} />
                             </div>
                         </Link>
 
@@ -930,6 +1032,84 @@ const DashboardPage = () => {
                     </div>
                 )}
             </main>
+
+            {/* Share Modal */}
+            {showShareModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                    <div className="bg-[#1E293B] border border-white/10 rounded-3xl max-w-lg w-full shadow-2xl animate-fade-in">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-white/5">
+                            <div className="flex items-center gap-2">
+                                <Share2 size={18} className="text-[#06B6D4]" />
+                                <h3 className="font-bold text-white">Bagikan ke Feed</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowShareModal(false)}
+                                className="p-2 hover:bg-white/5 rounded-xl transition-colors"
+                            >
+                                <X size={18} className="text-slate-400" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-4 space-y-4">
+                            {/* Caption Input */}
+                            <div>
+                                <label className="text-xs text-slate-400 font-medium mb-2 block">
+                                    Tambahkan caption (opsional)
+                                </label>
+                                <textarea
+                                    value={shareCaption}
+                                    onChange={(e) => setShareCaption(e.target.value)}
+                                    placeholder="Tulis sesuatu tentang insight ini..."
+                                    className="w-full bg-[#0F172A] border border-white/10 rounded-xl p-3 text-sm text-white placeholder:text-slate-600 focus:border-[#6366F1]/50 outline-none resize-none"
+                                    rows={3}
+                                    maxLength={500}
+                                />
+                                <p className="text-[10px] text-slate-500 mt-1 text-right">
+                                    {shareCaption.length}/500
+                                </p>
+                            </div>
+
+                            {/* Content Preview */}
+                            <div>
+                                <label className="text-xs text-slate-400 font-medium mb-2 block">
+                                    Preview: {shareData.title}
+                                </label>
+                                <div className="bg-[#0F172A] border border-white/5 rounded-xl p-3 max-h-40 overflow-y-auto">
+                                    <p className="text-xs text-slate-300 line-clamp-6">
+                                        {shareData.content?.substring(0, 500)}{shareData.content?.length > 500 ? '...' : ''}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t border-white/5 flex gap-3">
+                            <button
+                                onClick={() => setShowShareModal(false)}
+                                className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-slate-300 font-bold rounded-xl transition-colors text-sm"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={confirmInsightShare}
+                                disabled={isSharing}
+                                className="flex-1 py-3 bg-gradient-to-r from-[#6366F1] to-[#06B6D4] text-white font-bold rounded-xl transition-all hover:brightness-110 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                            >
+                                {isSharing ? (
+                                    <Loader2 size={16} className="animate-spin" />
+                                ) : (
+                                    <>
+                                        <Share2 size={14} />
+                                        Bagikan
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
