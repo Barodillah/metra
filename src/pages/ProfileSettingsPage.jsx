@@ -17,6 +17,8 @@ import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
 const ProfileSettingsPage = () => {
     const navigate = useNavigate();
     const { user, login } = useAuth(); // login used here to update generic user context if needed, or we might need a specific update function
@@ -74,7 +76,7 @@ const ProfileSettingsPage = () => {
 
         try {
             const token = localStorage.getItem('metra_token');
-            const response = await axios.put('http://localhost:3001/api/auth/profile', formData, {
+            const response = await axios.put(`${API_URL}/auth/profile`, formData, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -284,7 +286,7 @@ const PasswordChangeForm = () => {
 
         try {
             const token = localStorage.getItem('metra_token');
-            await axios.post('http://localhost:3001/api/auth/change-password', {
+            await axios.post(`${API_URL}/auth/change-password`, {
                 currentPassword: passData.currentPassword,
                 newPassword: passData.newPassword
             }, {
