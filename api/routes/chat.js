@@ -328,9 +328,7 @@ ${userContext}` : ''}
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": process.env.APP_URL || 'http://localhost:5173',
-                "X-Title": "Metra Chat"
+                "Content-Type": "application/json"
             },
             body: JSON.stringify({
                 model: OPENROUTER_MODEL,
@@ -387,9 +385,7 @@ ${userContext}` : ''}
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": process.env.APP_URL || 'http://localhost:5173',
-                "X-Title": "Metra Chat"
+                "Content-Type": "application/json"
             },
             body: JSON.stringify({
                 model: OPENROUTER_MODEL,
@@ -457,9 +453,7 @@ router.put('/sessions/:sessionId/summary', authenticateToken, async (req, res) =
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": process.env.APP_URL || 'http://localhost:5173',
-                    "X-Title": "Metra Chat"
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     model: OPENROUTER_MODEL,
@@ -548,9 +542,7 @@ router.put('/sessions/:sessionId/end', authenticateToken, async (req, res) => {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": process.env.APP_URL || 'http://localhost:5173',
-                    "X-Title": "Metra Chat"
+                    "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     model: OPENROUTER_MODEL,
