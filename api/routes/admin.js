@@ -646,7 +646,7 @@ ${context || ''}
             headers: {
                 "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
                 "Content-Type": "application/json",
-                "HTTP-Referer": window.location.origin,
+                "HTTP-Referer": process.env.APP_URL || 'http://localhost:5173',
                 "X-Title": "Metra Admin"
             },
             body: JSON.stringify({
