@@ -32,7 +32,9 @@ ${userContext}` : ''}
             method: "POST",
             headers: {
                 "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "HTTP-Referer": window.location.origin,
+                "X-Title": "Metra AI"
             },
             body: JSON.stringify({
                 "model": OPENROUTER_MODEL,
